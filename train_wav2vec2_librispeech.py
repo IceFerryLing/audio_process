@@ -1,8 +1,8 @@
-"""Small-sample Wav2Vec2 CTC fine-tuning on LibriSpeech.
+"""
+使用 LibriSpeech 小样本对 Wav2Vec2 CTC 模型进行微调。
 
-The default dummy dataset is a tiny LibriSpeech excerpt intended only to verify
-that downloading, preprocessing, training, and evaluation all work end to end.
-Use --dataset full after the smoke test succeeds.
+默认的 dummy 数据集是 LibriSpeech 的极小子集，仅用于验证下载、预处理、
+训练和评估的完整流程。冒烟测试通过后，可使用 --dataset full 切换到完整数据集。
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from transformers import AutoModelForCTC, AutoProcessor
 
 
 DATASETS = {
+    # 每项依次包含 Hugging Face Hub 数据集名称、配置名称和源数据划分。
     "dummy": ("hf-internal-testing/librispeech_asr_dummy", "clean", "validation"),
     "full": ("openslr/librispeech_asr", "clean", "train.100"),
 }
@@ -45,13 +46,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def seed_everything(seed: int) -> None:
+    """为训练脚本使用的所有随机数生成器设置种子。"""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
 
 
 def load_audio(audio: dict) -> tuple[np.ndarray, int]:
-    """Decode datasets.Audio(decode=False) without requiring torchcodec."""
+    """在不依赖 torchcodec 的情况下解码 datasets.Audio(decode=False)。"""
     source = io.BytesIO(audio["bytes"]) if audio.get("bytes") else audio["path"]
     samples, sampling_rate = sf.read(source, dtype="float32", always_2d=False)
     if samples.ndim == 2:
@@ -60,13 +62,16 @@ def load_audio(audio: dict) -> tuple[np.ndarray, int]:
 
 
 def prepare_dataset(args: argparse.Namespace, processor, model_config) -> tuple[Dataset, Dataset]:
+    """加载、编码、校验并划分小规模语音数据集。"""
     dataset_name, config, split = DATASETS[args.dataset]
     total = args.train_samples + args.eval_samples
+    # 短音频筛选可能丢弃大部分靠前样本，因此预先多读取一批候选数据。
     candidate_count = total if args.max_audio_seconds <= 0 else total * 10
     dataset = load_dataset(dataset_name, config, split=f"{split}[:{candidate_count}]")
     dataset = dataset.cast_column("audio", Audio(decode=False))
 
     def model_output_length(input_length: int) -> int:
+        """计算输入经过特征编码器卷积层后的时间轴长度。"""
         length = input_length
         for kernel, stride in zip(model_config.conv_kernel, model_config.conv_stride):
             length = (length - kernel) // stride + 1
@@ -80,6 +85,7 @@ def prepare_dataset(args: argparse.Namespace, processor, model_config) -> tuple[
             )
         inputs = processor(speech, sampling_rate=sampling_rate)
         labels = processor(text=example["text"].upper()).input_ids
+        # CTC 需要在相邻的相同标签之间插入额外的空白帧。
         repeated_tokens = sum(left == right for left, right in zip(labels, labels[1:]))
         return {
             "input_values": inputs.input_values[0],
@@ -90,6 +96,7 @@ def prepare_dataset(args: argparse.Namespace, processor, model_config) -> tuple[
         }
 
     dataset = dataset.map(prepare, remove_columns=dataset.column_names)
+    # 排除时长超限的输入，以及特征编码器压缩时间轴后无法容纳转录标签的输入。
     dataset = dataset.filter(
         lambda example: (
             (args.max_audio_seconds <= 0 or example["duration"] <= args.max_audio_seconds)
@@ -108,6 +115,8 @@ def prepare_dataset(args: argparse.Namespace, processor, model_config) -> tuple[
 
 
 def make_collator(processor):
+    """构建分别填充音频样本和转录标签的数据整理器。"""
+
     def collate(features: list[dict]) -> dict[str, torch.Tensor]:
         inputs = [torch.tensor(item["input_values"], dtype=torch.float32) for item in features]
         labels = [torch.tensor(item["labels"], dtype=torch.long) for item in features]
@@ -121,6 +130,7 @@ def make_collator(processor):
         label_mask = pad_sequence(
             [torch.ones_like(item, dtype=torch.bool) for item in labels], batch_first=True
         )
+        # Hugging Face 的 CTC 损失函数会忽略值为 -100 的标签位置。
         padded_labels[~label_mask] = -100
         return {
             "input_values": input_values,
@@ -133,6 +143,7 @@ def make_collator(processor):
 
 @torch.no_grad()
 def evaluate(model, loader, processor, device: torch.device) -> dict:
+    """评估一个批次并返回精简的冒烟测试结果。"""
     model.eval()
     batch = next(iter(loader))
     batch = {key: value.to(device) for key, value in batch.items()}
@@ -143,6 +154,7 @@ def evaluate(model, loader, processor, device: torch.device) -> dict:
     return {
         "eval_loss": round(output.loss.item(), 4),
         "prediction": processor.batch_decode(predicted_ids)[0],
+        # 参考文本来自原始标签序列，因此解码时需要保留重复 token。
         "reference": processor.batch_decode(labels, group_tokens=False)[0],
     }
 
