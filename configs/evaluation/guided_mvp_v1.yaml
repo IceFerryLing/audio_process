@@ -1,0 +1,66 @@
+protocol_version: guided-mvp-eval-v1
+mode: guided
+time_unit: seconds
+
+splits:
+  train:
+    librispeech: train-clean-100
+    purposes: [parameter_fitting, vocabulary_fitting, normalization_fitting]
+  validation:
+    librispeech: dev-clean
+    purposes: [checkpoint_selection, threshold_tuning, rule_ablation]
+  test:
+    librispeech: test-clean
+    purposes: [final_report_only]
+  speaker_partition: official
+  test_for_selection_forbidden: true
+
+checkpoint_selection:
+  phone_ctc:
+    metric: per
+    direction: minimize
+    split: dev-clean
+  guided_alignment:
+    metric: timestamp_mae_ms
+    direction: minimize
+    split: dev-clean
+    subset: manually-reviewed
+    tie_breaker: alignment_success_rate
+  explicit_boundary:
+    metric: boundary_f1_at_20ms
+    direction: maximize
+    split: dev-clean
+
+metrics:
+  phone_ctc:
+    - per
+  guided_alignment:
+    - alignment_success_rate
+    - timestamp_mae_ms
+    - insertion_count
+    - deletion_count
+    - repetition_count
+    - mismatch_count
+  boundary:
+    matching_tolerances_ms: [20, 50]
+    report: [precision, recall, f1]
+  segmentation:
+    report: [miss_rate, oversegmentation_rate, syllable_count_error]
+  system:
+    report: [real_time_factor, end_to_end_latency_ms, peak_vram_mb, model_size_mb]
+  error_slices:
+    report: [speaker, gender, speaking_rate, audio_duration, stress]
+
+definitions:
+  per: levenshtein_phone_edits_divided_by_reference_phone_count
+  alignment_success_rate: successful_utterances_divided_by_attempted_utterances
+  timestamp_mae_ms: mean_absolute_error_over_matched_start_and_end_boundaries
+  boundary_matching: one_to_one_minimum_distance_matching_within_tolerance
+  confidence: ctc_alignment_confidence_not_pronunciation_accuracy
+
+reporting_rules:
+  unknown_syllable_vocabulary_source: train_only
+  normalization_statistics_source: train_only
+  threshold_source: dev_only
+  final_test_runs_are_immutable: true
+  disclose_hubert_pretraining_overlap_with_librispeech: true

@@ -6,18 +6,18 @@ import argparse
 import hashlib
 import io
 import json
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import soundfile as sf
 import pyarrow.parquet as pq
-from huggingface_hub import dataset_info, hf_hub_download
+from huggingface_hub import hf_hub_download
 
 
 DATASET_ID = "openslr/librispeech_asr"
 DATASET_CONFIG = "all"
+DATASET_REVISION = "71cacbfb7e2354c4226d01e70d77d5fca3d04ba1"
 DATASET_SPLIT = "train.clean.100"
 DATASET_SHARD = "all/train.clean.100/0000.parquet"
 EXPECTED_SAMPLE_RATE = 16_000
@@ -25,20 +25,6 @@ EXPECTED_SAMPLE_RATE = 16_000
 
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
-
-
-def _resolve_dataset_revision(attempts: int = 4) -> str:
-    for attempt in range(attempts):
-        try:
-            revision = dataset_info(DATASET_ID).sha
-            if not revision:
-                raise RuntimeError(f"No revision returned for {DATASET_ID}")
-            return revision
-        except Exception:
-            if attempt == attempts - 1:
-                raise
-            time.sleep(2**attempt)
-    raise AssertionError("unreachable")
 
 
 def _validate_existing(output_dir: Path, sample_count: int) -> bool:
@@ -49,7 +35,18 @@ def _validate_existing(output_dir: Path, sample_count: int) -> bool:
 
     report = json.loads(report_path.read_text(encoding="utf-8"))
     rows = [json.loads(line) for line in manifest_path.read_text(encoding="utf-8").splitlines()]
-    if report.get("sample_count") != sample_count or len(rows) != sample_count:
+    expected_report = {
+        "dataset_id": DATASET_ID,
+        "dataset_config": DATASET_CONFIG,
+        "dataset_revision": DATASET_REVISION,
+        "dataset_shard": DATASET_SHARD,
+        "split": DATASET_SPLIT,
+        "sample_count": sample_count,
+        "selection": "first-n-in-published-split-order",
+    }
+    if any(report.get(key) != value for key, value in expected_report.items()):
+        return False
+    if len(rows) != sample_count:
         return False
 
     for row in rows:
@@ -78,12 +75,11 @@ def prepare_sample(output_dir: Path, sample_count: int, overwrite: bool = False)
         for line in manifest_path.read_text(encoding="utf-8").splitlines():
             old_audio_paths.add(output_dir / json.loads(line)["audio"])
 
-    resolved_revision = _resolve_dataset_revision()
     source_parquet = hf_hub_download(
         repo_id=DATASET_ID,
         filename=DATASET_SHARD,
         repo_type="dataset",
-        revision=resolved_revision,
+        revision=DATASET_REVISION,
     )
 
     audio_dir = output_dir / "audio"
@@ -143,7 +139,7 @@ def prepare_sample(output_dir: Path, sample_count: int, overwrite: bool = False)
         "mode": "guided",
         "dataset_id": DATASET_ID,
         "dataset_config": DATASET_CONFIG,
-        "dataset_revision": resolved_revision,
+        "dataset_revision": DATASET_REVISION,
         "dataset_shard": DATASET_SHARD,
         "split": DATASET_SPLIT,
         "sample_count": sample_count,

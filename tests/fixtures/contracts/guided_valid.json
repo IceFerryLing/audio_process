@@ -1,0 +1,54 @@
+{
+  "schema_version": "guided-syllable-result-v1",
+  "audio_id": "sample-001",
+  "mode": "guided",
+  "target_text": "HELLO WORLD",
+  "alignment": {
+    "status": "success",
+    "target_syllable_count": 3,
+    "aligned_syllable_count": 3,
+    "events": []
+  },
+  "segments": [
+    {
+      "target_index": 0,
+      "start": 0.12,
+      "end": 0.29,
+      "phones": ["HH", "AH0"],
+      "label": "HH-AH0",
+      "onset": ["HH"],
+      "nucleus": "AH",
+      "coda": [],
+      "stress": 0,
+      "token_id": null,
+      "confidence": 0.95
+    },
+    {
+      "target_index": 1,
+      "start": 0.29,
+      "end": 0.51,
+      "phones": ["L", "OW1"],
+      "label": "L-OW1",
+      "onset": ["L"],
+      "nucleus": "OW",
+      "coda": [],
+      "stress": 1,
+      "token_id": null,
+      "confidence": 0.93
+    },
+    {
+      "target_index": 2,
+      "start": 0.56,
+      "end": 0.88,
+      "phones": ["W", "ER1", "L", "D"],
+      "label": "W-ER1-L-D",
+      "onset": ["W"],
+      "nucleus": "ER",
+      "coda": ["L", "D"],
+      "stress": 1,
+      "token_id": null,
+      "confidence": 0.91
+    }
+  ]
+}
+

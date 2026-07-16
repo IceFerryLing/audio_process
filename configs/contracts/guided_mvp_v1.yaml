@@ -1,0 +1,60 @@
+contract_version: guided-mvp-v1
+stage: 1-contract-definition
+mode: guided
+
+scope:
+  covered_tasks:
+    - guided_target_syllable_alignment
+    - syllable_boundary_timestamps
+    - target_syllable_components
+  excluded_tasks:
+    - open_speech_recognition
+    - pronunciation_error_scoring
+    - vtl_trajectory_generation
+  token_id_required: false
+
+input:
+  audio:
+    sample_rate: 16000
+    channels: 1
+    time_unit: seconds
+  target_text:
+    required: true
+    empty_allowed: false
+
+processing:
+  text_normalization_version: librispeech-english-v1
+  pronunciation_source: cmudict-1.1.1+g2p_en-2.1.0
+  syllabifier_config: configs/data/syllabifier_arpabet_v1.yaml
+  alignment: ctc-constrained
+  long_audio_mode: near-real-time-chunked
+  strict_streaming: false
+
+output:
+  schema: schemas/guided_syllable_result_v1.schema.json
+  semantic_validator: syllable_recognition.contracts.guided.validate_guided_result
+  segment_label_semantics: target_syllable
+  target_text_semantics: normalized_text_used_for_alignment
+  timestamp_semantics: acoustic_alignment
+  confidence_semantics: alignment_confidence
+  pronunciation_score_semantics: not_provided
+  token_id_nullable: true
+
+data_splits:
+  train: train-clean-100
+  validation: dev-clean
+  test: test-clean
+  preserve_official_speaker_splits: true
+  random_utterance_resplit: false
+
+stage_gate:
+  required_checks:
+    - valid_fixture_passes_json_schema
+    - valid_fixture_passes_semantic_validation
+    - invalid_timestamps_are_rejected
+    - invalid_phone_decomposition_is_rejected
+    - invalid_confidence_is_rejected
+    - split_policy_is_machine_readable
+  acceptance: all_required_checks_pass
+  stop_on_failure: true
+  downstream_commands_allowed: false
