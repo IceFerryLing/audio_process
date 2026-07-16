@@ -1,5 +1,0 @@
-torch>=2.2
-transformers>=4.40
-datasets>=2.18
-soundfile>=0.12
-numpy>=1.26
