@@ -1,0 +1,136 @@
+rule_version: arpabet-word-internal-v1
+phone_system: arpabet
+scope: word_internal
+cross_word_resyllabification: false
+
+vowels:
+  - AA
+  - AE
+  - AH
+  - AO
+  - AW
+  - AY
+  - EH
+  - ER
+  - EY
+  - IH
+  - IY
+  - OW
+  - OY
+  - UH
+  - UW
+
+consonants:
+  - B
+  - CH
+  - D
+  - DH
+  - F
+  - G
+  - HH
+  - JH
+  - K
+  - L
+  - M
+  - N
+  - NG
+  - P
+  - R
+  - S
+  - SH
+  - T
+  - TH
+  - V
+  - W
+  - Y
+  - Z
+  - ZH
+
+stress:
+  values: [0, 1, 2]
+  stored_separately_from_nucleus: true
+  required_on_every_vowel: true
+
+empty_classes:
+  onset: <empty>
+  coda: <empty>
+  public_phone_array_representation: []
+
+boundary_rules:
+  word_initial_consonants: onset_of_first_syllable
+  word_final_consonants: coda_of_last_syllable
+  intervocalic_cluster: longest_legal_onset_suffix
+  no_legal_onset_suffix: entire_cluster_is_previous_coda
+  tie_breaker: longest_suffix_then_lexical_order
+  adjacent_vowels: separate_nuclei_with_empty_intervening_cluster
+
+legal_intervocalic_onsets:
+  - [B]
+  - [CH]
+  - [D]
+  - [DH]
+  - [F]
+  - [G]
+  - [HH]
+  - [JH]
+  - [K]
+  - [L]
+  - [M]
+  - [N]
+  - [P]
+  - [R]
+  - [S]
+  - [SH]
+  - [T]
+  - [TH]
+  - [V]
+  - [W]
+  - [Y]
+  - [Z]
+  - [ZH]
+  - [B, L]
+  - [B, R]
+  - [B, Y]
+  - [D, R]
+  - [D, W]
+  - [D, Y]
+  - [F, L]
+  - [F, R]
+  - [F, Y]
+  - [G, L]
+  - [G, R]
+  - [G, W]
+  - [G, Y]
+  - [HH, W]
+  - [HH, Y]
+  - [K, L]
+  - [K, R]
+  - [K, W]
+  - [K, Y]
+  - [P, L]
+  - [P, R]
+  - [P, W]
+  - [P, Y]
+  - [S, F]
+  - [S, K]
+  - [S, L]
+  - [S, M]
+  - [S, N]
+  - [S, P]
+  - [S, T]
+  - [S, TH]
+  - [S, W]
+  - [SH, R]
+  - [T, R]
+  - [T, W]
+  - [T, Y]
+  - [TH, R]
+  - [TH, W]
+  - [V, Y]
+  - [S, K, L]
+  - [S, K, R]
+  - [S, K, W]
+  - [S, P, L]
+  - [S, P, R]
+  - [S, T, R]
+

@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "guided_syllable_result_v1.schema.json",
+  "title": "Guided syllable recognition result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "audio_id",
+    "mode",
+    "target_text",
+    "alignment",
+    "segments"
+  ],
+  "properties": {
+    "schema_version": {"const": "guided-syllable-result-v1"},
+    "audio_id": {"type": "string", "minLength": 1},
+    "mode": {"const": "guided"},
+    "target_text": {"type": "string", "minLength": 1},
+    "alignment": {"$ref": "#/$defs/alignment"},
+    "segments": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/segment"}
+    }
+  },
+  "$defs": {
+    "phone": {
+      "type": "string",
+      "pattern": "^[A-Z]+[0-2]?$"
+    },
+    "nullableTime": {
+      "oneOf": [
+        {"type": "number", "minimum": 0},
+        {"type": "null"}
+      ]
+    },
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_index",
+        "start",
+        "end",
+        "phones",
+        "label",
+        "onset",
+        "nucleus",
+        "coda",
+        "stress",
+        "token_id",
+        "confidence"
+      ],
+      "properties": {
+        "target_index": {"type": "integer", "minimum": 0},
+        "start": {"type": "number", "minimum": 0},
+        "end": {"type": "number", "exclusiveMinimum": 0},
+        "phones": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/phone"}
+        },
+        "label": {"type": "string", "minLength": 1},
+        "onset": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/phone"}
+        },
+        "nucleus": {"type": "string", "pattern": "^[A-Z]+$"},
+        "coda": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/phone"}
+        },
+        "stress": {"type": "integer", "enum": [0, 1, 2]},
+        "token_id": {
+          "oneOf": [
+            {"type": "integer", "minimum": 0},
+            {"type": "null"}
+          ]
+        },
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "target_index", "start", "end", "phones", "confidence"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["insertion", "deletion", "repetition", "mismatch"]
+        },
+        "target_index": {
+          "oneOf": [
+            {"type": "integer", "minimum": 0},
+            {"type": "null"}
+          ]
+        },
+        "start": {"$ref": "#/$defs/nullableTime"},
+        "end": {"$ref": "#/$defs/nullableTime"},
+        "phones": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/phone"}
+        },
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "alignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "target_syllable_count",
+        "aligned_syllable_count",
+        "events"
+      ],
+      "properties": {
+        "status": {"type": "string", "enum": ["success", "partial", "failed"]},
+        "target_syllable_count": {"type": "integer", "minimum": 1},
+        "aligned_syllable_count": {"type": "integer", "minimum": 0},
+        "events": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/event"}
+        }
+      }
+    }
+  }
+}

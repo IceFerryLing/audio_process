@@ -1,0 +1,78 @@
+config_version: librispeech-stage2-v1
+stage: 2-data-labeling
+mode: guided
+seed: 1337
+
+input:
+  manifest: data/samples/librispeech_train_clean_100/manifest.jsonl
+  source_report: data/samples/librispeech_train_clean_100/source.json
+  split: train.clean.100
+  sample_rate: 16000
+  channels: 1
+
+normalization:
+  version: librispeech-english-v1
+  unicode: NFKC
+  case: upper
+  internal_apostrophe: preserve
+  hyphen: split
+  digits: reject
+
+pronunciation:
+  dictionary: cmudict
+  dictionary_version: 1.1.1
+  variant_strategy: first
+  morphology_strategy: possessive-s-v1
+  oov_strategy: g2p_en
+  g2p_version: 2.1.0
+  silent_oov_drop: false
+
+syllabification:
+  config: configs/data/syllabifier_arpabet_v1.yaml
+  version: arpabet-word-internal-v1
+  cross_word_resyllabification: false
+
+mfa:
+  runtime: wsl2
+  environment_prefix: ~/.local/share/mfa
+  micromamba_executable: ~/.local/bin/micromamba
+  version: 3.3.7
+  python_version: "3.11"
+  kaldi_version: 5.5.1172
+  kaldi_build: cpu
+  acoustic_model: english_us_arpa
+  acoustic_model_release: v3.0.0
+  acoustic_model_url: https://github.com/MontrealCorpusTools/mfa-models/releases/download/acoustic-english_us_arpa-v3.0.0/english_us_arpa.zip
+  acoustic_model_archive: artifacts/mfa/models/english_us_arpa-v3.0.0.zip
+  acoustic_model_size_bytes: 91928208
+  acoustic_model_sha256: d35ce271ded357d833d2f4b8d1041dc3748b9538567ba13f2c697f4e4126711b
+  clean: true
+  single_speaker: false
+  output_format: long_textgrid
+  word_tier: words
+  phone_tier: phones
+  silence_phones: [sil, sp]
+  corpus_directory: artifacts/mfa/stage2/corpus
+  dictionary_path: artifacts/mfa/stage2/lexicon.txt
+  textgrid_directory: artifacts/mfa/stage2/aligned
+
+output:
+  prepared_manifest: artifacts/manifests/stage2_prepared_train.jsonl
+  aligned_manifest: artifacts/manifests/stage2_aligned_train.jsonl
+  item_report: artifacts/reports/stage2_items.jsonl
+  oov_report: artifacts/reports/stage2_oov.jsonl
+  prepare_report: artifacts/reports/stage2_prepare.json
+  build_report: artifacts/reports/stage2_build.json
+  manual_review: artifacts/reports/stage2_manual_review.jsonl
+  resolved_config: artifacts/reports/stage2_resolved_config.yaml
+
+data_gate:
+  expected_items: 12
+  minimum_manual_review_items: 10
+  required_alignment_success_rate: 1.0
+  require_monotonic_timestamps: true
+  require_timestamps_within_audio: true
+  require_vowel_nucleus: true
+  allow_silent_oov_drop: false
+  stop_on_failure: true
+  downstream_training_allowed: false
