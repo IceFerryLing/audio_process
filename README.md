@@ -734,7 +734,7 @@ steps: 2400
 training items: 12
 trainable parameters: 42,295
 total parameters: 94,414,007
-final train loss: 0.266774
+final train loss: 0.266674
 final train PER: 0.026025
 checkpoint restore: passed
 ```
@@ -770,7 +770,7 @@ sylrec evaluate phone-ctc-mfa `
 | 指标 | 值 |
 | --- | ---: |
 | paired phone boundaries | 234 |
-| boundary MAE | 980.09 ms |
+| boundary MAE | 979.74 ms |
 | maximum error | 2230 ms |
 | boundary F1 at 20 ms | 1.71% |
 | boundary F1 at 50 ms | 3.42% |
@@ -918,9 +918,9 @@ VTL 只负责目标发音器官参数和轨迹，不替代识别。所有舌、�
 - 实现动态 waveform padding、attention mask、label `-100` mask 和 CTC 长度门禁。
 - 实现 HuBERT Phone CTC head、greedy decode、PER、checkpoint 和恢复检查。
 - 单条语音过拟合达到 loss 0.003804、PER 0.0。
-- 12 条语音过拟合达到 loss 0.266774、PER 2.60%。
+- 12 条语音覆盖重跑达到 loss 0.266674、PER 2.60%。
 - 实现 CTC constrained alignment 和 MFA 对照评价。
-- 明确记录边界 MAE 980.09 ms，边界门禁未通过。
+- 明确记录边界 MAE 979.74 ms，边界门禁未通过。
 - 将单文件 CLI 拆分为领域命令包，并抽取无阶段依赖的产物读写公共层。
 - 全量 53 项测试通过。
 

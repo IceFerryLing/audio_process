@@ -777,6 +777,110 @@ Git object store: 285 MiB -> 125.50 KiB packed
 
 状态：Git 仓库治理完成，当前继续在 `feature/hubert-phone-ctc` 开发。
 
+### 步骤 25：完整重跑12条 HuBERT Phone CTC 训练
+
+当前阶段：Stage 4 Phone CTC 正确性训练，不是正式 `train-clean-100` 泛化实验。
+
+输入：
+
+- 本地 `facebook/hubert-base-ls960`，固定 revision 和权重 SHA-256；
+- `artifacts/manifests/phone_ctc_tiny_train.jsonl` 中12条 `train.clean.100` 音频；
+- 由训练数据构建的55类 ARPAbet 词表；
+- `configs/train/hubert_phone_ctc_12_overfit.yaml`；
+- 单声道16 kHz音频，不使用 MFA 时间戳作为训练监督。
+
+处理：
+
+- 重新验证第一条真实音频的 HuBERT 离线前向；
+- 验证一秒输入的隐藏状态 shape 为 `[1, 49, 768]`；
+- 校验 phone manifest 和词表哈希，数据构建正确返回 `skipped`；
+- 运行6项数据、模型和 checkpoint 针对性测试；
+- 使用 `--overwrite` 重新初始化 Phone CTC head；
+- 冻结 HuBERT encoder，缓存12条音频的 hidden states；
+- 在 CPU 上训练55类线性 CTC head 2400步；
+- 保存并恢复 best/last checkpoint；
+- 再次运行训练命令，确认正确返回 `skipped`；
+- 使用新 best checkpoint 重跑第一条音频的 MFA 边界对照；
+- 运行全部53项单元测试。
+
+训练配置摘要：
+
+```text
+device: cpu
+training items: 12
+epochs: 200
+global steps: 2400
+batch size: 1
+head learning rate: 0.003
+encoder frozen: true
+cached frozen features: true
+trainable parameters: 42,295
+total parameters: 94,414,007
+```
+
+训练结果：
+
+```text
+status: passed_overfit
+mean train loss: 0.914991
+last step loss: 0.282674
+final evaluated train loss: 0.266674
+final train PER: 0.026025 (2.602%)
+last gradient norm: 0.190334
+checkpoint restore: passed
+MFA timestamps used for training: false
+```
+
+checkpoint 验证：
+
+```text
+global step: 2400
+epoch index: 199
+trainable tensors: 2 (classifier weight and bias)
+best SHA-256: 38b1d2d0b4a88bea6a8d0920405fd447c10d3f701d8422ec8cf22669d6c32d11
+last SHA-256: 38b1d2d0b4a88bea6a8d0920405fd447c10d3f701d8422ec8cf22669d6c32d11
+```
+
+与上一次运行比较：
+
+```text
+previous final loss: 0.266774
+rerun final loss:    0.266674
+previous train PER:  0.026025
+rerun train PER:     0.026025
+```
+
+固定 seed 后门禁指标可复现，但 checkpoint 字节哈希与上一次不同，因此当前不能宣称 CPU 多线程训练是 bitwise deterministic。
+
+新 checkpoint 的 MFA 对照：
+
+```text
+phone count: 117
+paired boundaries: 234
+boundary MAE: 979.74 ms
+maximum error: 2230 ms
+20 ms F1: 1.71%
+50 ms F1: 3.42%
+greedy sequence exactly matches target: false
+```
+
+产物位置：
+
+- `runs/hubert-phone-ctc-12-overfit/metrics.json`
+- `runs/hubert-phone-ctc-12-overfit/best/checkpoint.pt`
+- `runs/hubert-phone-ctc-12-overfit/last/checkpoint.pt`
+- `artifacts/reports/hubert_phone_ctc_12_overfit_vs_mfa.json`
+
+遇到的问题：首次离线验证使用了缺少 `audio/` 子目录的简化路径，libsndfile 无法打开文件。读取权威 manifest 后改用实际路径，模型前向验证通过。没有跳过或掩盖该失败。
+
+数据划分：未改变。训练和本次评价仍来自当前单说话人的12条 `train.clean.100` 小样本，没有 dev-clean 泛化评价，也没有使用 test-clean。
+
+验收指标：PER不高于5%、最终 loss 不高于1、checkpoint 可恢复、无 MFA 时间戳训练监督、全部测试通过。以上训练正确性门禁均通过。
+
+停止条件：边界 MAE 和20/50 ms F1仍不合格，因此不得把本结果描述为可靠音素边界或音节识别，也不得跳过1至10小时多说话人和 dev-clean 实验直接进入下游。
+
+状态：12条 Phone CTC 训练完整重跑完成；序列过拟合门禁通过，边界门禁仍失败。
+
 ## 5. 当前停止条件
 
 以下事实禁止继续进入 Syllable CTC、VTL、API 或界面：
