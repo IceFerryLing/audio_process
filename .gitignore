@@ -1,0 +1,43 @@
+# Python environments and generated caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local secrets and logs
+.env
+.env.*
+!.env.example
+*.log
+
+# Generated ML data, models, and experiment outputs
+/artifacts/*
+!/artifacts/.gitignore
+/assets/*
+!/assets/.gitignore
+/data/*
+!/data/.gitignore
+/runs/*
+!/runs/.gitignore
+/outputs/
+/wandb/
+/mlruns/
+
+# Model checkpoints must be published outside ordinary Git
+*.ckpt
+*.safetensors
+*.pt
+*.pth
+pytorch_model.bin
