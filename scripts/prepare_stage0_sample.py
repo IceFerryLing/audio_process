@@ -15,6 +15,7 @@ import pyarrow.parquet as pq
 from huggingface_hub import hf_hub_download
 
 
+# 同时固定数据集版本和分片，保证“发布顺序前12条”不会随时间变化。
 DATASET_ID = "openslr/librispeech_asr"
 DATASET_CONFIG = "all"
 DATASET_REVISION = "71cacbfb7e2354c4226d01e70d77d5fca3d04ba1"
@@ -49,6 +50,7 @@ def _validate_existing(output_dir: Path, sample_count: int) -> bool:
     if len(rows) != sample_count:
         return False
 
+    # 只有来源报告一致还不够，每个落盘FLAC也必须与manifest中的哈希一致。
     for row in rows:
         audio_path = output_dir / row["audio"]
         if not audio_path.is_file() or _sha256(audio_path.read_bytes()) != row["sha256"]:
@@ -70,6 +72,7 @@ def prepare_sample(output_dir: Path, sample_count: int, overwrite: bool = False)
                 f"Existing output does not match --count {sample_count}; use --overwrite explicitly"
             )
 
+    # 记录旧manifest中的音频，显式覆盖时只清理脚本管理的过期FLAC。
     old_audio_paths: set[Path] = set()
     if overwrite and manifest_path.is_file():
         for line in manifest_path.read_text(encoding="utf-8").splitlines():
@@ -86,6 +89,7 @@ def prepare_sample(output_dir: Path, sample_count: int, overwrite: bool = False)
     audio_dir.mkdir(parents=True, exist_ok=True)
     rows: list[dict[str, Any]] = []
 
+    # 源分片很大，只流式读取足够凑齐N条记录的Parquet batch。
     records: list[dict[str, Any]] = []
     for batch in pq.ParquetFile(source_parquet).iter_batches(batch_size=sample_count):
         records.extend(batch.to_pylist())
@@ -96,6 +100,7 @@ def prepare_sample(output_dir: Path, sample_count: int, overwrite: bool = False)
         encoded_audio = record["audio"]["bytes"]
         if not encoded_audio:
             raise ValueError(f"Missing encoded audio for {record['id']}")
+        # 写入权威本地样本前，先直接校验编码音频的格式。
         info = sf.info(io.BytesIO(encoded_audio))
         if info.samplerate != EXPECTED_SAMPLE_RATE or info.channels != 1:
             raise ValueError(
@@ -131,6 +136,7 @@ def prepare_sample(output_dir: Path, sample_count: int, overwrite: bool = False)
     audio_root = audio_dir.resolve()
     for stale_path in old_audio_paths - current_audio_paths:
         resolved_stale_path = stale_path.resolve()
+        # 任何逃出脚本管理audio目录的路径都不得删除。
         if resolved_stale_path.is_relative_to(audio_root) and resolved_stale_path.is_file():
             resolved_stale_path.unlink()
     report = {

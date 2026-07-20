@@ -19,6 +19,7 @@ def render_review_sheets(manifest: Path, output_dir: Path, count: int = 10) -> l
     rows = _read_jsonl(manifest)[:count]
     output_dir.mkdir(parents=True, exist_ok=True)
     outputs: list[Path] = []
+    # 每张图放5条语音，在固定审核分辨率下仍能看清标签。
     for sheet_index, start in enumerate(range(0, len(rows), 5), start=1):
         sheet_rows = rows[start : start + 5]
         figure, axes = plt.subplots(len(sheet_rows), 1, figsize=(20, 12), constrained_layout=True)
@@ -28,11 +29,13 @@ def render_review_sheets(manifest: Path, output_dir: Path, count: int = 10) -> l
             audio, sample_rate = sf.read(str(row["audio"]), dtype="float32")
             if audio.ndim > 1:
                 audio = audio.mean(axis=1)
+            # 仅将绘图波形降采样到约1 kHz，不修改源音频和时间戳。
             stride = max(1, sample_rate // 1000)
             samples = audio[::stride]
             times = np.arange(len(samples)) * stride / sample_rate
             axis.plot(times, samples, color="#1f4e79", linewidth=0.45)
             axis.axhline(0, color="#777777", linewidth=0.3)
+            # 红色实线表示MFA单词边界。
             for word_index, word in enumerate(row["words"]):
                 start_time = float(word["start"])
                 end_time = float(word["end"])
@@ -48,6 +51,7 @@ def render_review_sheets(manifest: Path, output_dir: Path, count: int = 10) -> l
                     rotation=55,
                 )
             axis.axvline(float(row["words"][-1]["end"]), color="#b23a48", linewidth=0.45)
+            # 绿色点线表示由音素区间确定性生成的音节边界。
             for syllable_index, syllable in enumerate(row["syllables"]):
                 start_time = float(syllable["start"])
                 end_time = float(syllable["end"])

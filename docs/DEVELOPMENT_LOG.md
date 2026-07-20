@@ -931,6 +931,66 @@ git diff check: passed
 
 状态：仓库说明和一步一步复现教程完成，文档验收通过。
 
+### 步骤 27：为脚本和配置补充中文注释
+
+当前阶段：可维护性改进，不修改算法、数据划分、训练参数或模型结构。
+
+注释范围：
+
+- `scripts/prepare_stage0_sample.py`：固定数据版本、幂等校验、流式Parquet读取和安全清理；
+- `scripts/download_hubert_model.py`：模型资产契约、流式哈希、限定下载和落盘复验；
+- `scripts/verify_hubert_model.py`：纯本地加载和一秒烟雾测试的原因；
+- `scripts/render_stage2_review.py`：审核图分页、绘图降采样、word/音节边界颜色；
+- `scripts/download_mfa_model.ps1`：配置解析、工作区边界、Range续传、临时合并和最终哈希；
+- `scripts/run_mfa_stage2.ps1`：WSL路径转换、TextGrid数量门禁、validate先于align；
+- `configs/contracts/guided_mvp_v1.yaml`：Guided范围、音频契约、近实时定义和阶段门禁；
+- `configs/evaluation/guided_mvp_v1.yaml`：train/dev/test职责、checkpoint指标和边界容差；
+- `configs/data/librispeech_phone_ctc_tiny.yaml`：CTC标签、blank/padding区别、MFA禁用和数据门禁；
+- `configs/data/syllabifier_arpabet_v1.yaml`：词内规则、stress、显式空类别和最长合法onset。
+
+有意未修改：
+
+- 三份 `configs/train/*.yaml` 的原始字节哈希已写入现有checkpoint；
+- `configs/data/librispeech_stage2.yaml` 的原始字节哈希已绑定MFA报告和人工审核链。
+
+直接给这些文件加注释会使已有产物拒绝恢复或需要重做人工审核，因此本步骤不触碰它们。
+
+配置兼容性：4份已注释YAML在解析后与修改前结构完全相同。Phone数据配置按字节哈希，所以显式重建了对应报告；重建后：
+
+```text
+items: 12
+phones: 1537
+vocabulary size: 55
+manifest SHA-256: 54d44c339aad5d199adfecdf811ac78825c3e45b9f3f45f5eae5fc5d2d83d069
+vocabulary SHA-256: de2f89be97f28ae10624b4ef21f7344de4b7552151fbf8f6f39f084e3e8904fd
+MFA timestamps used: false
+```
+
+manifest和词表哈希没有变化，现有训练checkpoint保持兼容，不需要重训。
+
+编码问题：Windows PowerShell 5.1不能可靠读取无BOM的UTF-8中文脚本。两份PS1增加UTF-8 BOM后，实际使用 `powershell.exe` 验证通过；Python模块docstring保持英文，避免中文帮助文本在旧控制台代码页下乱码，业务行内注释全部使用中文。
+
+验证结果：
+
+```text
+YAML parsed semantics: unchanged
+Python compile: passed
+PowerShell 5.1 MFA download: skipped
+PowerShell 5.1 MFA align: skipped (12 TextGrids)
+HuBERT asset validation: skipped/valid
+LibriSpeech sample validation: skipped/valid
+HuBERT offline smoke: passed
+tests: 53/53 passed
+Phone data safe rerun: skipped
+Phone training safe rerun: skipped
+```
+
+数据划分：未改变，仍为当前12条 `train.clean.100` 正确性样本；未读取dev/test。
+
+停止条件：任何注释导致YAML解析结构变化、脚本语法失败、manifest/词表哈希变化或checkpoint不匹配时，不得提交。
+
+状态：中文注释补充完成，现有数据和训练产物保持兼容。
+
 ## 5. 当前停止条件
 
 以下事实禁止继续进入 Syllable CTC、VTL、API 或界面：

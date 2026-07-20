@@ -1,3 +1,4 @@
+# 模型选择和阈值调节只能使用dev，test-clean只用于最终报告。
 protocol_version: guided-mvp-eval-v1
 mode: guided
 time_unit: seconds
@@ -16,6 +17,7 @@ splits:
   test_for_selection_forbidden: true
 
 checkpoint_selection:
+  # 每个任务都使用自己在dev-clean上的主指标选择checkpoint。
   phone_ctc:
     metric: per
     direction: minimize
@@ -42,6 +44,7 @@ metrics:
     - repetition_count
     - mismatch_count
   boundary:
+    # 同时报告严格和宽松的一对一边界匹配容差。
     matching_tolerances_ms: [20, 50]
     report: [precision, recall, f1]
   segmentation:
@@ -52,6 +55,7 @@ metrics:
     report: [speaker, gender, speaking_rate, audio_duration, stress]
 
 definitions:
+  # 将指标含义机器可读化，防止报告静默更改分母或定义。
   per: levenshtein_phone_edits_divided_by_reference_phone_count
   alignment_success_rate: successful_utterances_divided_by_attempted_utterances
   timestamp_mae_ms: mean_absolute_error_over_matched_start_and_end_boundaries
@@ -59,6 +63,7 @@ definitions:
   confidence: ctc_alignment_confidence_not_pronunciation_accuracy
 
 reporting_rules:
+  # 词表和统计量只在train拟合，阈值只在dev拟合。
   unknown_syllable_vocabulary_source: train_only
   normalization_statistics_source: train_only
   threshold_source: dev_only

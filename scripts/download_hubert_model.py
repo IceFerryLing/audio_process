@@ -12,6 +12,7 @@ from typing import Any
 from huggingface_hub import snapshot_download
 
 
+# 将Hub版本、文件集合、字节数和哈希视为一个不可拆分的模型资产契约。
 MODEL_ID = "facebook/hubert-base-ls960"
 MODEL_REVISION = "dba3bb02fda4248b6e082697eee756de8fe8aa8a"
 EXPECTED_FILES = {
@@ -32,6 +33,7 @@ EXPECTED_FILES = {
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
+    # 流式计算377 MB权重的哈希，避免一次性读入内存。
     with path.open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
@@ -56,18 +58,21 @@ def validate_model(output: Path) -> tuple[bool, dict[str, Any]]:
 
 def download_model(output: Path, overwrite: bool = False) -> dict[str, Any]:
     valid, files = validate_model(output)
+    # 只有全部固定文件都存在且完全匹配时，幂等重跑才允许跳过。
     if valid and not overwrite:
         return {"status": "skipped", "model_id": MODEL_ID, "revision": MODEL_REVISION, "files": files}
     if output.exists() and not overwrite:
         raise FileExistsError("existing HuBERT files are incomplete or mismatched; use --overwrite explicitly")
 
     output.mkdir(parents=True, exist_ok=True)
+    # 只下载契约内文件，避免额外拉取tokenizer或其他框架权重。
     snapshot_download(
         repo_id=MODEL_ID,
         revision=MODEL_REVISION,
         local_dir=output,
         allow_patterns=list(EXPECTED_FILES),
     )
+    # 网络请求成功不代表资产合格，落盘后必须再次校验实际字节。
     valid, files = validate_model(output)
     if not valid:
         raise RuntimeError(f"downloaded HuBERT files failed verification: {files}")

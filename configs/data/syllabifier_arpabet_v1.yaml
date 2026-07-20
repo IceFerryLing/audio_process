@@ -1,8 +1,11 @@
+# 确定性的词内ARPAbet音节化规则。
 rule_version: arpabet-word-internal-v1
 phone_system: arpabet
 scope: word_internal
+# 即使英语口语允许重音节化，也始终保留单词边界。
 cross_word_resyllabification: false
 
+# 只在判断元音集合时移除重音数字，最终仍将重音单独保存。
 vowels:
   - AA
   - AE
@@ -52,11 +55,13 @@ stress:
   required_on_every_vowel: true
 
 empty_classes:
+  # 缺失的onset/coda使用显式空类别，供后续分类头使用。
   onset: <empty>
   coda: <empty>
   public_phone_array_representation: []
 
 boundary_rules:
+  # 两个元音核之间优先分配下方onset表允许的最长后缀。
   word_initial_consonants: onset_of_first_syllable
   word_final_consonants: coda_of_last_syllable
   intervocalic_cluster: longest_legal_onset_suffix
@@ -65,6 +70,7 @@ boundary_rules:
   adjacent_vowels: separate_nuclei_with_empty_intervening_cluster
 
 legal_intervocalic_onsets:
+  # 列表顺序固定；每项是ARPAbet音素序列，不是字母拼写组合。
   - [B]
   - [CH]
   - [D]

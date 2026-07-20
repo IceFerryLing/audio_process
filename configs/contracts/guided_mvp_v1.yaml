@@ -1,7 +1,9 @@
+# 第一版已知目标文本（Guided）MVP的稳定产品契约。
 contract_version: guided-mvp-v1
 stage: 1-contract-definition
 mode: guided
 
+# covered表示契约要求覆盖，不代表当前模型已经全部实现。
 scope:
   covered_tasks:
     - guided_target_syllable_alignment
@@ -15,6 +17,7 @@ scope:
 
 input:
   audio:
+    # 所有公共音频入口都必须先统一为单声道16 kHz。
     sample_rate: 16000
     channels: 1
     time_unit: seconds
@@ -27,10 +30,12 @@ processing:
   pronunciation_source: cmudict-1.1.1+g2p_en-2.1.0
   syllabifier_config: configs/data/syllabifier_arpabet_v1.yaml
   alignment: ctc-constrained
+  # HuBERT是双向模型，分块推理属于近实时，不是严格流式。
   long_audio_mode: near-real-time-chunked
   strict_streaming: false
 
 output:
+  # JSON Schema检查结构，semantic_validator检查跨字段语义约束。
   schema: schemas/guided_syllable_result_v1.schema.json
   semantic_validator: syllable_recognition.contracts.guided.validate_guided_result
   segment_label_semantics: target_syllable
@@ -41,6 +46,7 @@ output:
   token_id_nullable: true
 
 data_splits:
+  # 保留官方说话人划分，禁止随机重分语句。
   train: train-clean-100
   validation: dev-clean
   test: test-clean
@@ -48,6 +54,7 @@ data_splits:
   random_utterance_resplit: false
 
 stage_gate:
+  # 所有契约检查通过前，下游阶段保持关闭。
   required_checks:
     - valid_fixture_passes_json_schema
     - valid_fixture_passes_semantic_validation

@@ -29,8 +29,10 @@ def main() -> None:
     waveform, sample_rate = sf.read(args.audio, dtype="float32")
     if sample_rate != 16_000 or waveform.ndim != 1:
         raise ValueError("HuBERT smoke-test audio must be mono 16 kHz")
+    # 此烟雾测试必须证明固定的本地资产可用，不能再次访问网络补文件。
     feature_extractor = AutoFeatureExtractor.from_pretrained(args.model, local_files_only=True)
     model = HubertModel.from_pretrained(args.model, local_files_only=True).eval()
+    # 一秒音频足以低成本验证预处理和预期的49x768 encoder输出。
     inputs = feature_extractor(
         waveform[:sample_rate],
         sampling_rate=sample_rate,

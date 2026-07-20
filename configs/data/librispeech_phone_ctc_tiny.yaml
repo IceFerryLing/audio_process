@@ -1,3 +1,5 @@
+# 固定12条样本的Phone CTC正确性数据契约，不代表正式训练配置。
+# 本文件按字节计算哈希并写入数据报告，修改注释后也需要显式重建。
 config_version: librispeech-phone-ctc-tiny-v1
 stage: 3-phone-sequence-manifest
 task: phone_ctc
@@ -5,12 +7,14 @@ mode: guided
 seed: 1337
 
 input:
+  # 保留LibriSpeech官方划分，并校验源音频为单声道16 kHz。
   manifest: data/samples/librispeech_train_clean_100/manifest.jsonl
   split: train.clean.100
   sample_rate: 16000
   channels: 1
 
 labels:
+  # ARPAbet元音保留重音，token ID只能由训练集标签定义。
   normalization_version: librispeech-english-v1
   dictionary: cmudict-1.1.1
   g2p: g2p_en-2.1.0
@@ -18,27 +22,32 @@ labels:
   vocabulary_source: train_only
   blank_token: <blank>
   unknown_token: <unk>
+  # CTC blank是模型类别，-100只用于屏蔽padding目标的loss。
   blank_id: 0
   unknown_id: 1
   label_padding_id: -100
 
 encoder:
+  # 从模型配置读取卷积kernel和stride，用于CTC长度可行性检查。
   model_id: facebook/hubert-base-ls960
   local_path: assets/models/facebook-hubert-base-ls960
   revision: dba3bb02fda4248b6e082697eee756de8fe8aa8a
 
 supervision:
+  # Phone CTC loss明确不使用MFA边界。
   ordered_phone_sequences_from_text: true
   mfa_timestamps_used: false
   mfa_role: evaluation_only
 
 output:
+  # 生成文件属于本地产物，由普通Git忽略。
   manifest: artifacts/manifests/phone_ctc_tiny_train.jsonl
   vocabulary: artifacts/vocabs/phone_ctc_tiny.json
   report: artifacts/reports/phone_ctc_tiny_data.json
   resolved_config: artifacts/reports/phone_ctc_tiny_data_config.yaml
 
 data_gate:
+  # 任一样本无法容纳CTC目标路径时，必须在训练前停止。
   expected_items: 12
   require_official_split: true
   require_ctc_feasible_lengths: true
