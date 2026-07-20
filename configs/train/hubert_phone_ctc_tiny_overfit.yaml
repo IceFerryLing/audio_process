@@ -1,0 +1,49 @@
+config_version: hubert-phone-ctc-tiny-overfit-v1
+stage: 4-phone-ctc-correctness
+task: phone_ctc
+mode: guided
+seed: 1337
+
+data:
+  manifest: artifacts/manifests/phone_ctc_tiny_train.jsonl
+  vocabulary: artifacts/vocabs/phone_ctc_tiny.json
+  split: train.clean.100
+  sample_rate: 16000
+  max_items: 1
+
+model:
+  model_id: facebook/hubert-base-ls960
+  local_path: assets/models/facebook-hubert-base-ls960
+  revision: dba3bb02fda4248b6e082697eee756de8fe8aa8a
+  weight_sha256: 062249fffb353eab67547a2fbc129f7c31a2f459faf641b19e8fb007cc5c48ad
+  dropout: 0.0
+  freeze_encoder: true
+  unfreeze_top_layers: 0
+  gradient_checkpointing: false
+
+training:
+  device: cpu
+  epochs: 600
+  batch_size: 1
+  shuffle: false
+  num_workers: 0
+  max_steps: 600
+  head_learning_rate: 0.01
+  encoder_learning_rate: 0.00003
+  weight_decay: 0.0
+  gradient_clip_norm: 5.0
+  mixed_precision: false
+  cache_frozen_features: true
+  scheduler: constant
+
+output:
+  run_directory: runs/hubert-phone-ctc-tiny-overfit
+
+correctness_gate:
+  require_finite_loss: true
+  require_checkpoint_restore: true
+  require_zero_mfa_supervision: true
+  overfit_required: true
+  maximum_train_per: 0.05
+  maximum_last_loss: 1.0
+  note: one-utterance head-only overfit gate with a frozen HuBERT encoder

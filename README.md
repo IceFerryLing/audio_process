@@ -2,11 +2,13 @@
 
 本项目构建一个英文交互式发音学习平台。系统最终接收学习者的连续英文语音，输出带时间戳的音节结果，将学习者发音与目标发音比较，再通过 VocalTractLab（VTL）提供有来源、可解释的发音器官运动指导。
 
-当前项目不是一个已经训练完成的语音识别产品。现阶段已经固定 Guided MVP 契约，并在 12 条真实 LibriSpeech 音频上跑通“文本 -> 音素 -> MFA 对齐 -> 音节伪标签”的完整离线数据生产链路。HuBERT Base 已下载并通过离线前向验证，但 Phone CTC、音节边界模型、Guided CTC 推理和 VTL 仍未训练或实现。
+逐步开发记录、文件位置、运行命令和门禁结果见 [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md)。
+
+当前项目不是一个已经训练完成的产品。MFA 离线伪标签链路已经跑通；在 `feature/hubert-phone-ctc` 分支上，还实现了只使用 LibriSpeech 音频和文本音素序列的 HuBERT Phone CTC。CTC 序列过拟合门禁已经通过，但 CTC emission 边界与 MFA 的误差仍很大，因此还不能宣称音素时间划分达到可用精度。
 
 ## 1. 当前状态
 
-截至 2026-07-17：
+截至 2026-07-20：
 
 | 阶段 | 状态 | 已有结果 |
 | --- | --- | --- |
@@ -14,9 +16,10 @@
 | 1. Guided MVP 契约 | 已完成 | 音节定义、输出 schema、评价协议，12 项契约测试 |
 | 2. 极小样本数据标注链路 | 已完成 | 12/12 MFA 对齐；452 词、1537 音素、619 音节 |
 | 2. 数据门禁 | 已通过 | 自动检查无问题；10/10 可视化抽查通过 |
-| 3. 正式 train/dev/test manifest | 未开始 | 下一项强制任务 |
-| 4. Phone CTC | 未开始 | 尚无任务头和 checkpoint |
-| 5. Guided CTC 对齐 | 未开始 | 尚无可部署 aligner |
+| 3. 无 MFA phone-sequence manifest | 极小样本已完成 | 12 条、1537 phones、55 类 train-only 词表 |
+| 3. 正式 train/dev/test manifest | 未开始 | 当前仍只有单说话人小样本 |
+| 4. HuBERT Phone CTC | 正确性门禁部分通过 | 12 条冻结 encoder 过拟合 PER 2.60% |
+| 5. Guided CTC 对齐 | 算法已实现，边界未达标 | MFA 对照边界 MAE 980.1 ms |
 | 6. Syllable CTC | 未开始 | 尚无训练词表和模型 |
 | 7. 显式边界与属性分类 | 未开始 | 尚无 Boundary/ONC/stress 模型 |
 | 8. 组合推理 | 未开始 | 尚无稳定推理实现 |
@@ -38,7 +41,9 @@
 }
 ```
 
-这里的 `downstream_training_allowed=true` 只说明这 12 条样本的数据转换链路正确，可以继续扩展正式数据。它不表示 HuBERT 已经完成音节识别训练。
+这里的 `downstream_training_allowed=true` 只说明 MFA 数据转换链路正确。Phone CTC 的序列和边界指标使用各自独立门禁。
+
+当前分支只选择一个自监督预训练模型 `facebook/hubert-base-ls960`，没有引入 Wav2Vec2。当前本地数据也只有 `train.clean.100` 发布顺序前 12 条；MFA 资产保留为评价对照，不进入 CTC loss。
 
 ## 2. 项目最终目标
 
@@ -670,6 +675,101 @@ sylrec data validate --config configs/data/librispeech_stage2.yaml
 
 `stage2_build.json` 保存的是构建完成时的自动检查状态，因此人工审核前会显示 pending/false；`data validate` 根据当前审核队列计算最终门禁状态。
 
+### 8.14 复现无 MFA 的 HuBERT Phone CTC
+
+当前 Phone CTC 使用自监督预训练 HuBERT encoder，但音频加文本音素序列的 CTC 微调属于有监督微调。训练标签不包含 MFA 时间戳。
+
+生成 transcript-derived phone sequence 和 train-only 词表：
+
+```powershell
+sylrec data build-phone-sequences `
+  --config configs/data/librispeech_phone_ctc_tiny.yaml
+```
+
+当前数据报告：
+
+```text
+items: 12
+duration: 168.625 seconds
+phones: 1537
+vocabulary size: 55
+CTC-infeasible items: 0
+MFA timestamps used: false
+```
+
+运行单步真实训练 smoke test：
+
+```powershell
+sylrec train phone-ctc `
+  --config configs/train/hubert_phone_ctc_tiny_smoke.yaml
+```
+
+运行单条语音过拟合：
+
+```powershell
+sylrec train phone-ctc `
+  --config configs/train/hubert_phone_ctc_tiny_overfit.yaml
+```
+
+结果为 600 步、最终 loss `0.003804`、训练 PER `0.0`。该结果只证明 loss、mask、解码、反向传播和 checkpoint 正确，不能证明泛化。
+
+运行全部 12 条语音的冻结 encoder 过拟合：
+
+```powershell
+sylrec train phone-ctc `
+  --config configs/train/hubert_phone_ctc_12_overfit.yaml
+```
+
+结果：
+
+```text
+steps: 2400
+training items: 12
+trainable parameters: 42,295
+total parameters: 94,414,007
+final train loss: 0.266774
+final train PER: 0.026025
+checkpoint restore: passed
+```
+
+冻结 encoder 时先缓存真实 HuBERT hidden states，再反复训练随机初始化的 CTC head。这只是计算优化，不改变监督来源。
+
+使用目标文本执行 CTC constrained alignment：
+
+```powershell
+sylrec align phone-ctc `
+  --config configs/train/hubert_phone_ctc_12_overfit.yaml `
+  --checkpoint runs/hubert-phone-ctc-12-overfit/best/checkpoint.pt `
+  --audio data/samples/librispeech_train_clean_100/audio/374-180298-0000.flac `
+  --text "<target text>"
+```
+
+输出的时间语义是 `ctc_emission_span`，帧步长为 20 ms。它不是精确 phone duration，也没有使用 MFA 时间戳。
+
+使用 MFA 作为纯评价参照：
+
+```powershell
+sylrec evaluate phone-ctc-mfa `
+  --config configs/train/hubert_phone_ctc_12_overfit.yaml `
+  --checkpoint runs/hubert-phone-ctc-12-overfit/best/checkpoint.pt `
+  --phone-manifest artifacts/manifests/phone_ctc_tiny_train.jsonl `
+  --mfa-manifest artifacts/manifests/stage2_aligned_train.jsonl `
+  --item-id 374-180298-0000 `
+  --output artifacts/reports/hubert_phone_ctc_12_overfit_vs_mfa.json
+```
+
+当前第一条语音的结果：
+
+| 指标 | 值 |
+| --- | ---: |
+| paired phone boundaries | 234 |
+| boundary MAE | 980.09 ms |
+| maximum error | 2230 ms |
+| boundary F1 at 20 ms | 1.71% |
+| boundary F1 at 50 ms | 3.42% |
+
+因此目前只通过了 Phone CTC 序列正确性/过拟合门禁，边界门禁明确未通过。不得继续宣称已经获得可靠音素边界。
+
 ## 9. 产物、哈希与可重复运行
 
 权威本地产物：
@@ -708,14 +808,15 @@ sylrec data validate --config configs/data/librispeech_stage2.yaml
 
 ### 阶段 3：正式 train/dev/test manifest
 
-下一任务：
+当前已经在 12 条样本上实现无 MFA phone-sequence manifest；正式任务仍需：
 
 1. 获取 `train-clean-100`、`dev-clean`、`test-clean`。
-2. 分 split 准备 MFA corpus、词典和对齐。
-3. 记录每条成功、失败和过滤原因。
-4. 生成正式 JSONL manifest。
-5. 统计时长、说话人数、OOV、失败率、词表和长尾。
-6. 建立 10 至 100 条人工听审集合。
+2. 分 split 生成 transcript-derived phone sequence，不使用 MFA 边界训练。
+3. 只从 train 构建正式 phone vocabulary。
+4. MFA 仅为 dev/test 审核子集提供评价参照。
+5. 记录每条成功、失败和过滤原因。
+6. 统计时长、说话人数、OOV、失败率、词表和长尾。
+7. 建立 10 至 100 条人工听审集合。
 
 门禁未通过时不能开始完整训练。
 
@@ -725,7 +826,7 @@ sylrec data validate --config configs/data/librispeech_stage2.yaml
 音频 -> HuBERT/Wav2Vec -> Phone CTC -> ARPAbet -> 音节化
 ```
 
-顺序：10 至 50 条极小数据过拟合；1 至 10 小时实验；冻结 encoder 训练 head；逐步解冻顶部层；最后才是完整 `train-clean-100`。主要指标为 dev PER。
+当前已完成 1 条和 12 条冻结 encoder 过拟合，以及 checkpoint 恢复。下一步仍必须使用多说话人的 1 至 10 小时数据验证泛化，再逐步解冻顶部 2 至 4 层；最后才是完整 `train-clean-100`。主要选择指标为 dev PER。
 
 ### 阶段 5：Guided CTC 对齐
 
@@ -735,7 +836,7 @@ sylrec data validate --config configs/data/librispeech_stage2.yaml
 目标音素 + logits -> 约束对齐 -> 时间戳和置信度
 ```
 
-必须测试正确朗读、漏读、插入、重复和明显误读。
+CTC trellis、重复 phone、backtrace 和帧到秒转换已经实现。当前 emission 边界门禁失败，必须扩大数据并测试正确朗读、漏读、插入、重复和明显误读，之后再用显式 Boundary head 细化。
 
 ### 阶段 6：直接 Syllable CTC
 
@@ -770,12 +871,14 @@ VTL 只负责目标发音器官参数和轨迹，不替代识别。所有舌、�
 2. 当前没有正式 `dev-clean`、`test-clean` manifest。
 3. 视觉审核没有替代人工听审。
 4. `LESCAUT`、`RECEVEUR` 的 G2P 需要人工审校。
-5. HuBERT 目前只有 encoder，没有任务头和 checkpoint。
-6. 当前没有学习者口音或错误发音开发集。
-7. LibriSpeech 正确朗读性能不能代表发音错误检测能力。
-8. 正式训练环境仍需在 Linux/WSL2 锁定 CUDA、PyTorch、驱动和 GPU 信息。
-9. HuBERT、MFA 和后续 VTL 的模型卡、许可证与发布限制仍需单独审计。
-10. 当前工作基于 Git commit `02824b2fe2f9760da327eb9c4acd60e6fe88a2d3`，本轮工作区修改尚未提交。
+5. Phone CTC 当前只在同一个说话人的 12 条训练语音上过拟合，没有 dev 泛化结果。
+6. CTC emission span 相对 MFA 的边界 MAE 约 980 ms，边界门禁未通过。
+7. 当前实现是自监督预训练 encoder 加有监督 CTC 微调，不是纯无监督 ARPAbet 发现。
+8. 当前没有学习者口音或错误发音开发集。
+9. LibriSpeech 正确朗读性能不能代表发音错误检测能力。
+10. 正式训练环境仍需在 Linux/WSL2 锁定 CUDA、PyTorch、驱动和 GPU 信息。
+11. HuBERT、MFA 和后续 VTL 的模型卡、许可证与发布限制仍需单独审计。
+12. 当前分支为 `feature/hubert-phone-ctc`，本轮工作区修改尚未提交。
 
 ## 12. 工作记录摘要
 
@@ -800,8 +903,21 @@ VTL 只负责目标发音器官参数和轨迹，不替代识别。所有舌、�
 - 34 项测试全部通过。
 - 补齐 HuBERT 下载、离线验证和从零复现文档。
 
+### 2026-07-20
+
+- 从 `MFA` 创建 `feature/hubert-phone-ctc` 分支。
+- 固定只使用 `facebook/hubert-base-ls960` 和现有 LibriSpeech 小样本。
+- 生成不读取 MFA 时间戳的 phone-sequence manifest 和 55 类 train-only 词表。
+- 实现动态 waveform padding、attention mask、label `-100` mask 和 CTC 长度门禁。
+- 实现 HuBERT Phone CTC head、greedy decode、PER、checkpoint 和恢复检查。
+- 单条语音过拟合达到 loss 0.003804、PER 0.0。
+- 12 条语音过拟合达到 loss 0.266774、PER 2.60%。
+- 实现 CTC constrained alignment 和 MFA 对照评价。
+- 明确记录边界 MAE 980.09 ms，边界门禁未通过。
+- 全量 48 项测试通过。
+
 ## 13. 下一项任务
 
-下一项任务是阶段 3：把当前已验证的数据链路扩展到官方 `train-clean-100`、`dev-clean` 和 `test-clean`，生成正式 manifest、统计报告、失败清单和人工听审集合。
+下一项任务是取得多说话人的 1 至 10 小时 `train-clean-100` 子集和 `dev-clean` 审核子集，生成无 MFA phone-sequence manifest。随后先冻结 HuBERT 训练 CTC head，再解冻顶部层，以 dev PER 和 MFA/人工边界指标判断是否获得可迁移声学对齐。
 
-阶段 3 数据门禁通过后，才能进入 HuBERT/Wav2Vec Phone CTC 的 10 至 50 条极小数据过拟合。
+当前 12 条过拟合已经通过，因此不再重复扩大单说话人训练步数。边界指标未通过前，不进入 Syllable CTC、VTL 或界面开发。

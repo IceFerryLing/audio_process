@@ -31,6 +31,10 @@ model-check = [
   "torch==2.9.1",
   "transformers==5.13.0",
 ]
+train = [
+  "torch==2.9.1",
+  "transformers==5.13.0",
+]
 
 [project.scripts]
 sylrec = "syllable_recognition.cli:main"
