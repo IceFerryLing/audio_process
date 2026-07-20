@@ -881,6 +881,56 @@ greedy sequence exactly matches target: false
 
 状态：12条 Phone CTC 训练完整重跑完成；序列过拟合门禁通过，边界门禁仍失败。
 
+### 步骤 26：新增仓库说明和新手复现教程
+
+当前阶段：文档交付，不修改模型、训练代码、数据划分、checkpoint或评价产物。
+
+输入：当前仓库目录结构、全部配置、脚本help、CLI help、README复现段落、实际训练和MFA产物路径。
+
+处理：
+
+- 新增逐目录和逐关键文件的仓库说明；
+- 解释MFA数据链路和HuBERT Phone CTC链路的职责区别；
+- 解释所有配置、脚本、CLI模块、数据模块、模型、训练、推理、指标和测试文件；
+- 标注Git跟踪文件与本地忽略产物的所有权边界；
+- 新增从clone和切分支开始的Windows PowerShell教程；
+- 解释虚拟环境、editable install、53项测试和CLI检查；
+- 给出HuBERT与LibriSpeech下载、哈希检查和预期输出；
+- 按smoke、一条过拟合、12条过拟合顺序给出训练命令；
+- 给出Guided CTC对齐命令，并从manifest读取真实目标文本；
+- 将WSL2、micromamba、MFA validate/align、TextGrid、人工审核和最终门禁单独说明；
+- 给出新checkpoint对MFA评价的完整命令；
+- 增加安全重跑、`--overwrite` 风险和10类常见错误处理；
+- 增加复现成功检查清单和正确的下一阶段；
+- 在README首页增加新手阅读顺序；
+- 将README旧的34项测试预期更新为当前53项。
+
+文档位置：
+
+- `docs/REPOSITORY_GUIDE.md`
+- `docs/REPRODUCTION_GUIDE.md`
+- `README.md`
+
+数据划分：未改变。教程只复现当前12条 `train.clean.100` 正确性样本，并明确说明正式实验还缺少多说话人train子集和dev-clean。
+
+验收指标：文档中的本地链接存在、命令与当前CLI help一致、默认路径与脚本一致、参考指标来自当前metrics和评价报告、不会引导用户伪造人工审核或误用test-clean。
+
+停止条件：命令参数不存在、路径错误、预期结果过时、MFA和Phone CTC监督来源混淆，或把边界失败写成成功时，文档不得提交。
+
+验证结果：
+
+```text
+Markdown relative links: 6/6 files passed
+documented key paths: 12/12 passed
+code fences: balanced
+CLI commands: matched current help
+tests: 53/53 passed
+compile: passed
+git diff check: passed
+```
+
+状态：仓库说明和一步一步复现教程完成，文档验收通过。
+
 ## 5. 当前停止条件
 
 以下事实禁止继续进入 Syllable CTC、VTL、API 或界面：

@@ -2,7 +2,14 @@
 
 本项目构建一个英文交互式发音学习平台。系统最终接收学习者的连续英文语音，输出带时间戳的音节结果，将学习者发音与目标发音比较，再通过 VocalTractLab（VTL）提供有来源、可解释的发音器官运动指导。
 
-逐步开发记录、文件位置、运行命令和门禁结果见 [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md)。
+第一次接触本仓库时，按下面顺序阅读：
+
+1. [`docs/REPOSITORY_GUIDE.md`](docs/REPOSITORY_GUIDE.md)：逐目录、逐关键文件解释“这个文件是干什么的”；
+2. [`docs/REPRODUCTION_GUIDE.md`](docs/REPRODUCTION_GUIDE.md)：从clone、环境安装到训练和评价的一步一步复现教程；
+3. [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md)：按实际执行顺序记录开发过程、问题和门禁结果；
+4. [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md)：分支、提交和大文件管理规则。
+
+本文README负责研究目标、原理、当前结论和完整路线，不再承担所有新手操作细节。
 
 当前项目不是一个已经训练完成的产品。MFA 离线伪标签链路已经跑通；在 `feature/hubert-phone-ctc` 分支上，还实现了只使用 LibriSpeech 音频和文本音素序列的 HuBERT Phone CTC。CTC 序列过拟合门禁已经通过，但 CTC emission 边界与 MFA 的误差仍很大，因此还不能宣称音素时间划分达到可用精度。
 
@@ -19,7 +26,7 @@
 | 3. 无 MFA phone-sequence manifest | 极小样本已完成 | 12 条、1537 phones、55 类 train-only 词表 |
 | 3. 正式 train/dev/test manifest | 未开始 | 当前仍只有单说话人小样本 |
 | 4. HuBERT Phone CTC | 正确性门禁部分通过 | 12 条冻结 encoder 过拟合 PER 2.60% |
-| 5. Guided CTC 对齐 | 算法已实现，边界未达标 | MFA 对照边界 MAE 980.1 ms |
+| 5. Guided CTC 对齐 | 算法已实现，边界未达标 | MFA 对照边界 MAE 979.7 ms |
 | 6. Syllable CTC | 未开始 | 尚无训练词表和模型 |
 | 7. 显式边界与属性分类 | 未开始 | 尚无 Boundary/ONC/stress 模型 |
 | 8. 组合推理 | 未开始 | 尚无稳定推理实现 |
@@ -354,6 +361,8 @@ audio_process/
 |-- docs/
 |   |-- contracts/guided_mvp_v1.md
 |   |-- GIT_WORKFLOW.md
+|   |-- REPOSITORY_GUIDE.md
+|   |-- REPRODUCTION_GUIDE.md
 |   `-- DEVELOPMENT_LOG.md
 |-- schemas/guided_syllable_result_v1.schema.json
 |-- scripts/
@@ -427,7 +436,7 @@ python -m unittest discover -s tests -p "test_*.py" -v
 当前预期：
 
 ```text
-Ran 34 tests
+Ran 53 tests
 OK
 ```
 
