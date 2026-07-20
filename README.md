@@ -345,11 +345,13 @@ audio_process/
 |   |-- mfa/                                     # MFA 模型、corpus、TextGrid
 |   `-- reports/                                 # 哈希、统计、审核记录
 |-- configs/
-|   |-- contracts/guided_mvp_v1.yaml
-|   |-- data/librispeech_stage2.yaml
-|   |-- data/syllabifier_arpabet_v1.yaml
-|   `-- evaluation/guided_mvp_v1.yaml
-|-- docs/contracts/guided_mvp_v1.md
+|   |-- contracts/                              # Guided MVP 契约
+|   |-- data/                                   # 数据准备与词表配置
+|   |-- evaluation/                             # 评价协议
+|   `-- train/                                  # Phone CTC 训练配置
+|-- docs/
+|   |-- contracts/guided_mvp_v1.md
+|   `-- DEVELOPMENT_LOG.md
 |-- schemas/guided_syllable_result_v1.schema.json
 |-- scripts/
 |   |-- download_hubert_model.py
@@ -359,15 +361,17 @@ audio_process/
 |   |-- run_mfa_stage2.ps1
 |   `-- verify_hubert_model.py
 |-- src/syllable_recognition/
-|   |-- cli.py
-|   |-- contracts/guided.py
-|   `-- data/
-|       |-- alignment.py
-|       |-- normalization.py
-|       |-- pronunciation.py
-|       |-- stage2.py
-|       `-- syllabification.py
-`-- tests/
+|   |-- cli/                                    # Click 入口及 data/train/align/evaluate 命令
+|   |-- core/                                   # JSON/JSONL 与 SHA-256 公共产物工具
+|   |-- contracts/                              # Guided 输出契约
+|   |-- data/                                   # 规范化、发音、音节化、MFA、CTC dataset
+|   |-- decoding/                               # CTC 解码和目标约束对齐
+|   |-- evaluation/                             # Phone CTC 与 MFA 对照评价
+|   |-- inference/                              # Guided Phone CTC 推理
+|   |-- metrics/                                # PER 与边界指标
+|   |-- models/                                 # HuBERT Phone CTC 模型
+|   `-- training/                               # 配置驱动训练和 checkpoint
+`-- tests/                                      # 按上述模块镜像组织的单元测试
 ```
 
 数据集、下载缓存、MFA 输出、checkpoint、训练日志和用户录音不进入普通 Git。
@@ -914,7 +918,8 @@ VTL 只负责目标发音器官参数和轨迹，不替代识别。所有舌、�
 - 12 条语音过拟合达到 loss 0.266774、PER 2.60%。
 - 实现 CTC constrained alignment 和 MFA 对照评价。
 - 明确记录边界 MAE 980.09 ms，边界门禁未通过。
-- 全量 48 项测试通过。
+- 将单文件 CLI 拆分为领域命令包，并抽取无阶段依赖的产物读写公共层。
+- 全量 53 项测试通过。
 
 ## 13. 下一项任务
 

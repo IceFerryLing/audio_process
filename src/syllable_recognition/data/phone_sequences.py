@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -12,6 +10,15 @@ from typing import Any
 
 import soundfile as sf
 import yaml
+
+from syllable_recognition.core.artifacts import (
+    read_json,
+    read_jsonl as _read_jsonl,
+    sha256_bytes,
+    sha256_file,
+    write_json as _write_json,
+    write_jsonl as _write_jsonl,
+)
 
 from .normalization import NORMALIZER_VERSION, normalize_librispeech_text
 from .pronunciation import PronunciationResolver
@@ -69,14 +76,6 @@ class PhoneVocabulary:
         }
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def minimum_ctc_frames(labels: Sequence[str] | Sequence[int]) -> int:
     """Return target length plus one blank frame for each adjacent repeat."""
     repeats = sum(left == right for left, right in zip(labels, labels[1:]))
@@ -112,23 +111,6 @@ def load_phone_sequence_config(path: Path) -> PhoneSequenceConfig:
     return PhoneSequenceConfig(resolved, resolved.parents[2], raw)
 
 
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
-
-
-def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=True, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-
-
-def _write_jsonl(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        "".join(json.dumps(row, ensure_ascii=True, sort_keys=True) + "\n" for row in rows),
-        encoding="utf-8",
-    )
-
-
 def _existing_outputs_match(
     config: PhoneSequenceConfig,
     *,
@@ -140,7 +122,7 @@ def _existing_outputs_match(
     vocabulary_path = config.resolve(config.raw["output"]["vocabulary"])
     if not report_path.is_file() or not manifest_path.is_file() or not vocabulary_path.is_file():
         return False
-    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report = read_json(report_path)
     return (
         report.get("input_manifest_sha256") == input_hash
         and report.get("config_sha256") == config_hash
@@ -157,7 +139,7 @@ def build_phone_sequence_manifest(config_path: Path, *, overwrite: bool = False)
     vocabulary_path = config.resolve(config.raw["output"]["vocabulary"])
     report_path = config.resolve(config.raw["output"]["report"])
     input_hash = sha256_file(input_path)
-    config_hash = hashlib.sha256(config.path.read_bytes()).hexdigest()
+    config_hash = sha256_bytes(config.path.read_bytes())
     if not overwrite and _existing_outputs_match(config, input_hash=input_hash, config_hash=config_hash):
         return {"status": "skipped", "stage": "phone-sequence-manifest"}
     if not overwrite and any(path.exists() for path in (output_path, vocabulary_path, report_path)):
@@ -168,7 +150,7 @@ def build_phone_sequence_manifest(config_path: Path, *, overwrite: bool = False)
         raise PhoneSequenceDataError("input item count differs from the configured correctness gate")
 
     model_config_path = config.resolve(config.raw["encoder"]["local_path"]) / "config.json"
-    model_config = json.loads(model_config_path.read_text(encoding="utf-8"))
+    model_config = read_json(model_config_path)
     kernels = model_config["conv_kernel"]
     strides = model_config["conv_stride"]
     resolver = PronunciationResolver.from_default_packages()

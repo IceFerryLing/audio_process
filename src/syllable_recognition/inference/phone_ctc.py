@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import math
 from pathlib import Path
 from typing import Any
@@ -13,7 +11,8 @@ import torch
 import yaml
 from transformers import AutoFeatureExtractor
 
-from syllable_recognition.data.phone_sequences import PhoneVocabulary, sha256_file
+from syllable_recognition.core.artifacts import read_json, sha256_bytes, sha256_file
+from syllable_recognition.data.phone_sequences import PhoneVocabulary
 from syllable_recognition.data.normalization import normalize_librispeech_text
 from syllable_recognition.data.pronunciation import PronunciationResolver
 from syllable_recognition.decoding.phone_ctc import (
@@ -36,7 +35,7 @@ def align_phone_ctc(
     resolve = lambda value: (root / value).resolve()
     model_path = resolve(raw["model"]["local_path"])
     vocabulary_path = resolve(raw["data"]["vocabulary"])
-    vocabulary_payload = json.loads(vocabulary_path.read_text(encoding="utf-8"))
+    vocabulary_payload = read_json(vocabulary_path)
     vocabulary = PhoneVocabulary(
         tuple(vocabulary_payload["tokens"]),
         blank_id=int(vocabulary_payload["blank_id"]),
@@ -44,7 +43,7 @@ def align_phone_ctc(
         label_padding_id=int(vocabulary_payload["label_padding_id"]),
     )
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    expected_config_hash = hashlib.sha256(config_path.read_bytes()).hexdigest()
+    expected_config_hash = sha256_bytes(config_path.read_bytes())
     if checkpoint["config_sha256"] != expected_config_hash:
         raise ValueError("checkpoint and training config hashes differ")
     if checkpoint["vocabulary_sha256"] != sha256_file(vocabulary_path):

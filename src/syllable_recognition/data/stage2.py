@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import shutil
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
@@ -12,6 +11,15 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+from syllable_recognition.core.artifacts import (
+    read_json,
+    read_jsonl as _read_jsonl,
+    sha256_bytes as _sha256_bytes,
+    sha256_file,
+    write_json as _write_json,
+    write_jsonl as _write_jsonl,
+)
 
 from .normalization import NORMALIZER_VERSION, normalize_librispeech_text
 from .alignment import AlignmentParseError, align_prepared_row
@@ -57,35 +65,6 @@ def load_stage2_config(path: Path) -> Stage2Config:
     return Stage2Config(resolved_path, root, raw)
 
 
-def _sha256_bytes(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
-
-
-def _write_jsonl(path: Path, rows: list[Mapping[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        "".join(json.dumps(row, ensure_ascii=True, sort_keys=True) + "\n" for row in rows),
-        encoding="utf-8",
-    )
-
-
-def _write_json(path: Path, value: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
 def _validate_input_row(row: Mapping[str, Any], expected_split: str, audio_path: Path) -> None:
     required = {"id", "audio", "duration", "text", "speaker_id", "sample_rate", "channels", "split", "sha256"}
     missing = required - set(row)
@@ -115,7 +94,7 @@ def _prepared_outputs_match(config: Stage2Config, input_hash: str, config_hash: 
     report_path = config.resolve(config.raw["output"]["prepare_report"])
     if not report_path.is_file():
         return False
-    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report = read_json(report_path)
     required_paths = [
         config.resolve(config.raw["output"]["prepared_manifest"]),
         config.resolve(config.raw["output"]["oov_report"]),
@@ -316,7 +295,7 @@ def build_aligned_manifest(
 
     config_hash = _sha256_bytes(config.path.read_bytes())
     prepared_hash = sha256_file(prepared_path)
-    prepare_report = json.loads(prepare_report_path.read_text(encoding="utf-8"))
+    prepare_report = read_json(prepare_report_path)
     if prepare_report.get("config_sha256") != config_hash:
         raise Stage2DataError("prepare-mfa outputs were built with a different config")
     if prepare_report.get("prepared_manifest_sha256") != prepared_hash:
@@ -330,7 +309,7 @@ def build_aligned_manifest(
     textgrid_hash = _textgrid_set_hash(textgrid_paths)
 
     if not overwrite and build_report_path.is_file() and aligned_path.is_file():
-        old_report = json.loads(build_report_path.read_text(encoding="utf-8"))
+        old_report = read_json(build_report_path)
         if (
             old_report.get("config_sha256") == config_hash
             and old_report.get("prepared_manifest_sha256") == prepared_hash
@@ -528,7 +507,7 @@ def validate_aligned_manifest(config_path: Path) -> dict[str, Any]:
     review_path = config.resolve(config.raw["output"]["manual_review"])
     if not aligned_path.is_file() or not build_report_path.is_file() or not review_path.is_file():
         raise Stage2DataError("aligned manifest, build report, or manual review queue is missing")
-    build_report = json.loads(build_report_path.read_text(encoding="utf-8"))
+    build_report = read_json(build_report_path)
     if build_report["aligned_manifest_sha256"] != sha256_file(aligned_path):
         raise Stage2DataError("aligned manifest hash differs from the build report")
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -10,17 +9,15 @@ import soundfile as sf
 import torch
 from torch.utils.data import Dataset
 
+from syllable_recognition.core.artifacts import read_json, read_jsonl
+
 from .phone_sequences import PhoneVocabulary
 
 
 class PhoneCTCDataset(Dataset[dict[str, Any]]):
     def __init__(self, manifest_path: Path, vocabulary_path: Path, *, root: Path) -> None:
-        self.rows = [
-            json.loads(line)
-            for line in manifest_path.read_text(encoding="utf-8").splitlines()
-            if line
-        ]
-        vocabulary_payload = json.loads(vocabulary_path.read_text(encoding="utf-8"))
+        self.rows = read_jsonl(manifest_path)
+        vocabulary_payload = read_json(vocabulary_path)
         self.vocabulary = PhoneVocabulary(
             tuple(vocabulary_payload["tokens"]),
             blank_id=int(vocabulary_payload["blank_id"]),

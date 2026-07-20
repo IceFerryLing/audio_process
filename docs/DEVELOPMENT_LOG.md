@@ -14,7 +14,7 @@
 | MFA 用途 | 离线伪标签基线和评价参照，不进入 Phone CTC loss |
 | Phone CTC 序列门禁 | 通过 |
 | Phone CTC 边界门禁 | 未通过 |
-| 全量测试 | 48/48 通过 |
+| 全量测试 | 53/53 通过 |
 
 本分支没有引入 Wav2Vec2。模型目录中只有 HuBERT Base，本地样本目录中只有当前 LibriSpeech 小样本。数据、模型、MFA 输出、运行目录和 checkpoint 均由 `.gitignore` 排除，不进入普通 Git。
 
@@ -392,7 +392,7 @@ audio + transcript
 
 - `src/syllable_recognition/data/phone_sequences.py`
 - `configs/data/librispeech_phone_ctc_tiny.yaml`
-- `src/syllable_recognition/cli.py`
+- `src/syllable_recognition/cli/data.py`
 
 测试位置：
 
@@ -512,7 +512,7 @@ trainable head parameters: 42,295
 源码位置：
 
 - `src/syllable_recognition/training/phone_ctc.py`
-- `src/syllable_recognition/cli.py`
+- `src/syllable_recognition/cli/train.py`
 
 配置位置：
 
@@ -594,7 +594,7 @@ checkpoint restore: passed
 
 - `src/syllable_recognition/decoding/phone_ctc.py`
 - `src/syllable_recognition/inference/phone_ctc.py`
-- `src/syllable_recognition/cli.py`
+- `src/syllable_recognition/cli/align.py`
 
 CLI：
 
@@ -622,7 +622,7 @@ sylrec align phone-ctc
 
 - `src/syllable_recognition/evaluation/phone_ctc_mfa.py`
 - `src/syllable_recognition/metrics/alignment.py`
-- `src/syllable_recognition/cli.py`
+- `src/syllable_recognition/cli/evaluate.py`
 
 测试位置：
 
@@ -674,6 +674,57 @@ training safe rerun: passed
 ```
 
 状态：当前分支工程实现完成，边界质量门禁保持失败状态。
+
+### 步骤 23：重构项目结构并保持命令兼容
+
+当前阶段：工程结构重构，不改变 Phone CTC 研究阶段和门禁结论。
+
+输入：现有 `src/syllable_recognition` 业务模块、单文件 CLI、48 项测试，以及已生成的数据和训练产物。
+
+处理：
+
+- 将 `src/syllable_recognition/cli.py` 拆为 `cli/` 命令包。
+- `cli/__init__.py` 只组装顶层命令和日志初始化。
+- `cli/data.py`、`train.py`、`align.py`、`evaluate.py` 分别拥有各自命令。
+- `cli/common.py` 统一机器可读 JSON 输出和结构化阶段日志。
+- 新增 `core/artifacts.py`，统一 JSON、JSONL 和 SHA-256 读写。
+- 数据、训练、推理和评价模块改用公共产物工具。
+- 保留 `sylrec = "syllable_recognition.cli:main"`，所有命令名称和参数不变。
+- 保留配置路径、manifest、报告、checkpoint 和运行目录不变。
+
+源码位置：
+
+- `src/syllable_recognition/cli/`
+- `src/syllable_recognition/core/artifacts.py`
+- `src/syllable_recognition/data/stage2.py`
+- `src/syllable_recognition/data/phone_sequences.py`
+- `src/syllable_recognition/data/ctc_dataset.py`
+- `src/syllable_recognition/training/phone_ctc.py`
+- `src/syllable_recognition/inference/phone_ctc.py`
+
+测试位置：
+
+- `tests/cli/test_cli.py`
+- `tests/core/test_artifacts.py`
+
+输出与验证：
+
+```text
+editable install: passed
+sylrec/data/train/align/evaluate help: passed
+tests: 53/53 passed
+compile: passed
+data safe rerun: skipped
+training safe rerun: skipped
+```
+
+数据划分：未改变，仍为当前12条 `train.clean.100` 小样本；没有读取或重分 dev/test。
+
+验收指标：CLI 命令集合完全保留、公共产物序列化确定性、全部测试通过、安全重跑不改写既有产物。
+
+停止条件：任一命令丢失、产物哈希变化、测试失败或安全重跑触发训练，均视为重构失败并停止下游工作。
+
+状态：代码结构重构完成；模型指标和边界门禁结论不变。
 
 ## 5. 当前停止条件
 

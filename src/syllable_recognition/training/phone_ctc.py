@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import platform
 import random
 import sys
-from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -22,8 +19,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Subset
 from transformers import AutoFeatureExtractor
 
+from syllable_recognition.core.artifacts import read_json, sha256_bytes, sha256_file, write_json
 from syllable_recognition.data.ctc_dataset import PhoneCTCCollator, PhoneCTCDataset
-from syllable_recognition.data.phone_sequences import sha256_file
 from syllable_recognition.decoding.phone_ctc import collapse_ctc_ids
 from syllable_recognition.metrics.per import phone_error_rate
 from syllable_recognition.models.phone_ctc import HubertPhoneCTC
@@ -31,11 +28,6 @@ from syllable_recognition.models.phone_ctc import HubertPhoneCTC
 
 class PhoneCTCTrainingError(RuntimeError):
     """Raised when a correctness-stage Phone CTC run violates its contract."""
-
-
-def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=True, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 
 
 def _set_seed(seed: int) -> None:
@@ -173,14 +165,14 @@ def train_phone_ctc(config_path: Path, *, overwrite: bool = False) -> dict[str, 
     model_path = resolve(raw["model"]["local_path"])
     run_directory = resolve(raw["output"]["run_directory"])
     report_path = run_directory / "metrics.json"
-    config_hash = hashlib.sha256(resolved_config.read_bytes()).hexdigest()
+    config_hash = sha256_bytes(resolved_config.read_bytes())
     manifest_hash = sha256_file(manifest_path)
     vocabulary_hash = sha256_file(vocabulary_path)
     weight_path = model_path / "pytorch_model.bin"
     if sha256_file(weight_path) != raw["model"]["weight_sha256"]:
         raise PhoneCTCTrainingError("local HuBERT weight hash differs from the training config")
     if report_path.is_file() and not overwrite:
-        existing = json.loads(report_path.read_text(encoding="utf-8"))
+        existing = read_json(report_path)
         if (
             existing.get("config_sha256") == config_hash
             and existing.get("manifest_sha256") == manifest_hash
@@ -370,7 +362,7 @@ def train_phone_ctc(config_path: Path, *, overwrite: bool = False) -> dict[str, 
             "cuda_available": torch.cuda.is_available(),
         },
     }
-    _write_json(report_path, report)
+    write_json(report_path, report)
     if overfit_required and not overfit_passed:
         raise PhoneCTCTrainingError(
             f"overfit gate failed: final PER={final_per:.4f}, final loss={final_loss:.4f}"
