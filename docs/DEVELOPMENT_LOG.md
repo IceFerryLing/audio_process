@@ -726,6 +726,57 @@ training safe rerun: skipped
 
 状态：代码结构重构完成；模型指标和边界门禁结论不变。
 
+### 步骤 24：整理 Git 分支、历史和大文件规则
+
+当前阶段：仓库治理，不改变模型代码、数据划分、训练结果或边界门禁。
+
+输入：本地和远端 `main`、`MFA`、`feature/hubert-phone-ctc`，当前重构提交，Git reflog 和对象库。
+
+处理：
+
+- 将项目结构重构保存为独立 `refactor` 提交。
+- 新增顶层 `.gitignore`，停止跟踪 Python 字节码和模型权重类型。
+- 创建并验证仓库外完整 bundle，备份活动分支和旧 Wav2Vec2 初始提交。
+- 将 HuBERT 分支的三个已有提交重放到最新 `origin/main`。
+- 发现 Windows CRLF 导致相同 YAML 的原始字节哈希变化。
+- 新增 `.gitattributes`，固定配置、源码和文档为 LF，Windows 脚本为 CRLF，模型与音频为 binary。
+- 使用 `--force-with-lease` 更新远端 HuBERT 分支。
+- 将本地 `main` 以 `--ff-only` 同步到 `origin/main`。
+- 将 MFA 提交归档为 `baseline-mfa-v1` annotated tag。
+- 删除已经合并的本地和远端 `MFA` 分支。
+- 在有完整备份后清理 reflog 和悬空对象。
+- 新增 `docs/GIT_WORKFLOW.md` 固定后续分支生命周期。
+
+最终引用：
+
+```text
+main -> e3d258a
+feature/hubert-phone-ctc -> a88d4dc 及其后续文档提交
+baseline-mfa-v1 -> d86f26f
+```
+
+验证结果：
+
+```text
+working tree: clean
+local/remote branch tracking: synchronized
+tests: 53/53 passed
+compile: passed
+data safe rerun: skipped
+training safe rerun: skipped
+tracked cache/model files: 0
+git fsck: passed
+Git object store: 285 MiB -> 125.50 KiB packed
+```
+
+数据划分：未改变。仍只有当前12条 `train.clean.100` 小样本，没有读取或重分 dev/test。
+
+验收指标：分支图线性、`main` 同步、MFA 由标签归档、功能分支远端同步、大文件可恢复但不留在活动对象库、全部工程门禁通过。
+
+停止条件：远端引用不一致、bundle 校验失败、测试失败、配置哈希变化或发现被跟踪的模型/缓存文件时，停止删除和对象清理。
+
+状态：Git 仓库治理完成，当前继续在 `feature/hubert-phone-ctc` 开发。
+
 ## 5. 当前停止条件
 
 以下事实禁止继续进入 Syllable CTC、VTL、API 或界面：

@@ -334,6 +334,8 @@ Guided v1 公共输出由 `schemas/guided_syllable_result_v1.schema.json` 和 Py
 ```text
 audio_process/
 |-- AGENTS.md
+|-- .gitattributes
+|-- .gitignore
 |-- README.md
 |-- pyproject.toml
 |-- assets/
@@ -351,6 +353,7 @@ audio_process/
 |   `-- train/                                  # Phone CTC 训练配置
 |-- docs/
 |   |-- contracts/guided_mvp_v1.md
+|   |-- GIT_WORKFLOW.md
 |   `-- DEVELOPMENT_LOG.md
 |-- schemas/guided_syllable_result_v1.schema.json
 |-- scripts/
