@@ -1,4 +1,4 @@
-"""Download a small, reproducible LibriSpeech sample for stage-0 checks."""
+"""Download LibriSpeech data, with a backward-compatible Stage 0 sample mode."""
 
 from __future__ import annotations
 
@@ -163,6 +163,17 @@ def prepare_sample(output_dir: Path, sample_count: int, overwrite: bool = False)
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--config",
+        type=Path,
+        help="Stage 3 downloader config; when set, --count and --output are ignored.",
+    )
+    parser.add_argument(
+        "--split",
+        action="append",
+        default=[],
+        help="Configured split to download; repeat for multiple splits.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("data/samples/librispeech_train_clean_100"),
@@ -170,6 +181,18 @@ def main() -> None:
     parser.add_argument("--count", type=int, default=12)
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
+    if args.config is not None:
+        from syllable_recognition.data.librispeech_download import download_librispeech
+
+        report = download_librispeech(
+            args.config,
+            split_names=tuple(args.split),
+            overwrite=args.overwrite,
+        )
+        print(json.dumps(report, indent=2))
+        return
+    if args.split:
+        parser.error("--split requires --config")
     print(json.dumps(prepare_sample(args.output, args.count, args.overwrite), indent=2))
 
 

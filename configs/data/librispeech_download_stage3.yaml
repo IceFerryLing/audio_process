@@ -1,0 +1,45 @@
+schema_version: 1
+stage: 3-librispeech-download
+mode: guided
+
+dataset:
+  id: openslr/librispeech_asr
+  config: all
+  revision: 71cacbfb7e2354c4226d01e70d77d5fca3d04ba1
+  expected_sample_rate: 16000
+
+splits:
+  train-clean-100:
+    source_split: train.clean.100
+    source_shards:
+      - all/train.clean.100/0000.parquet
+    output_dir: data/librispeech/train-clean-100
+    enabled: true
+    target_hours: 1.0
+    target_items: null
+    max_seconds_per_speaker: 240.0
+    minimum_speakers: 10
+
+  dev-clean:
+    source_split: dev.clean
+    source_shards: null
+    output_dir: data/librispeech/dev-clean
+    enabled: true
+    target_hours: 0.5
+    target_items: null
+    max_seconds_per_speaker: 120.0
+    minimum_speakers: 5
+
+  test-clean:
+    source_split: test.clean
+    source_shards: null
+    output_dir: data/librispeech/test-clean
+    enabled: false
+    target_hours: 0.5
+    target_items: null
+    max_seconds_per_speaker: 120.0
+    minimum_speakers: 5
+
+output:
+  report: artifacts/reports/librispeech_download_stage3.json
+  resolved_config: artifacts/reports/librispeech_download_stage3_config.yaml

@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 
 from syllable_recognition.data.phone_sequences import build_phone_sequence_manifest
+from syllable_recognition.data.librispeech_download import download_librispeech
 from syllable_recognition.data.stage2 import (
     build_aligned_manifest,
     mfa_download_spec,
@@ -22,6 +23,18 @@ from .common import echo_json, log_stage
 @click.group("data")
 def data_group() -> None:
     """Build and validate versioned data artifacts."""
+
+
+@data_group.command("download")
+@click.option("--config", "config_path", type=click.Path(path_type=Path, exists=True), required=True)
+@click.option("--split", "split_names", multiple=True, help="Configured split; repeat as needed.")
+@click.option("--overwrite", is_flag=True, help="Explicitly replace mismatched generated outputs.")
+def download_command(config_path: Path, split_names: tuple[str, ...], overwrite: bool) -> None:
+    """Download configured official LibriSpeech splits or deterministic subsets."""
+    log_stage("stage_start", "librispeech-download", config=str(config_path))
+    report = download_librispeech(config_path, split_names=split_names, overwrite=overwrite)
+    log_stage("stage_complete", "librispeech-download", status=report["status"])
+    echo_json(report)
 
 
 @data_group.command("build-phone-sequences")

@@ -4,17 +4,17 @@
 
 ## 1. 当前结论
 
-| 项目 | 当前值 |
-| --- | --- |
-| 当前日期 | 2026-07-20 |
-| 当前分支 | `feature/hubert-phone-ctc` |
-| 选择的模型 | `facebook/hubert-base-ls960` |
-| 当前数据 | LibriSpeech `train.clean.100` 前12条 |
-| 当前训练方式 | 自监督预训练 HuBERT encoder + 有监督 Phone CTC 微调 |
-| MFA 用途 | 离线伪标签基线和评价参照，不进入 Phone CTC loss |
-| Phone CTC 序列门禁 | 通过 |
-| Phone CTC 边界门禁 | 未通过 |
-| 全量测试 | 53/53 通过 |
+| 项目               | 当前值                                              |
+| ------------------ | --------------------------------------------------- |
+| 当前日期           | 2026-07-20                                          |
+| 当前分支           | `feature/hubert-phone-ctc`                        |
+| 选择的模型         | `facebook/hubert-base-ls960`                      |
+| 当前数据           | LibriSpeech`train.clean.100` 前12条               |
+| 当前训练方式       | 自监督预训练 HuBERT encoder + 有监督 Phone CTC 微调 |
+| MFA 用途           | 离线伪标签基线和评价参照，不进入 Phone CTC loss     |
+| Phone CTC 序列门禁 | 通过                                                |
+| Phone CTC 边界门禁 | 未通过                                              |
+| 全量测试           | 53/53 通过                                          |
 
 本分支没有引入 Wav2Vec2。模型目录中只有 HuBERT Base，本地样本目录中只有当前 LibriSpeech 小样本。数据、模型、MFA 输出、运行目录和 checkpoint 均由 `.gitignore` 排除，不进入普通 Git。
 

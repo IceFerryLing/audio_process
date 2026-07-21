@@ -94,18 +94,18 @@ audio_process/
 
 可以把它理解为：
 
-| 目录 | 谁写入 | 保存什么 | 是否进普通Git |
-| --- | --- | --- | --- |
-| `configs/` | 开发者 | 可复现配置 | 是 |
-| `docs/` | 开发者 | 说明、教程、日志 | 是 |
-| `schemas/` | 开发者 | 公共输出格式 | 是 |
-| `scripts/` | 开发者 | 下载和外部工具wrapper | 是 |
-| `src/` | 开发者 | Python业务代码 | 是 |
-| `tests/` | 开发者 | 单元测试和小fixture | 是 |
-| `assets/` | 下载脚本 | HuBERT等大模型 | 否 |
-| `data/` | 下载脚本 | LibriSpeech等音频 | 否 |
-| `artifacts/` | 数据命令 | manifest、TextGrid、报告 | 否 |
-| `runs/` | 训练命令 | checkpoint、metrics | 否 |
+| 目录           | 谁写入   | 保存什么                 | 是否进普通Git |
+| -------------- | -------- | ------------------------ | ------------- |
+| `configs/`   | 开发者   | 可复现配置               | 是            |
+| `docs/`      | 开发者   | 说明、教程、日志         | 是            |
+| `schemas/`   | 开发者   | 公共输出格式             | 是            |
+| `scripts/`   | 开发者   | 下载和外部工具wrapper    | 是            |
+| `src/`       | 开发者   | Python业务代码           | 是            |
+| `tests/`     | 开发者   | 单元测试和小fixture      | 是            |
+| `assets/`    | 下载脚本 | HuBERT等大模型           | 否            |
+| `data/`      | 下载脚本 | LibriSpeech等音频        | 否            |
+| `artifacts/` | 数据命令 | manifest、TextGrid、报告 | 否            |
+| `runs/`      | 训练命令 | checkpoint、metrics      | 否            |
 
 ## 4. 根目录文件
 
@@ -229,10 +229,14 @@ python scripts/download_hubert_model.py
 
 ### `scripts/prepare_stage0_sample.py`
 
-从固定revision的 `openslr/librispeech_asr` Parquet分片取发布顺序前12条，保存FLAC、manifest和来源报告。
+LibriSpeech下载入口。无 `--config` 时保留Stage 0兼容模式，从固定revision分片取发布顺序前12条；传入Stage 3配置后，可下载一小时多说话人子集或完整官方split，并保存FLAC、manifest、来源、说话人统计和哈希报告。
 
 ```powershell
 python scripts/prepare_stage0_sample.py --count 12
+
+sylrec data download `
+  --config configs/data/librispeech_download_stage3.yaml `
+  --split train-clean-100
 ```
 
 ### `scripts/verify_hubert_model.py`
@@ -259,13 +263,13 @@ Windows到WSL2的wrapper。它先运行 `mfa validate`，成功后才运行 `mfa
 
 CLI文件只做参数声明、配置路径校验、日志和调用业务函数，核心算法不写在Click命令里。
 
-| 文件 | 负责的命令 |
-| --- | --- |
-| `cli/__init__.py` | 顶层 `sylrec`，注册四个命令组 |
-| `cli/common.py` | JSON输出和结构化阶段日志 |
-| `cli/data.py` | `sylrec data ...` |
-| `cli/train.py` | `sylrec train phone-ctc` |
-| `cli/align.py` | `sylrec align phone-ctc` |
+| 文件                | 负责的命令                        |
+| ------------------- | --------------------------------- |
+| `cli/__init__.py` | 顶层`sylrec`，注册四个命令组    |
+| `cli/common.py`   | JSON输出和结构化阶段日志          |
+| `cli/data.py`     | `sylrec data ...`               |
+| `cli/train.py`    | `sylrec train phone-ctc`        |
+| `cli/align.py`    | `sylrec align phone-ctc`        |
 | `cli/evaluate.py` | `sylrec evaluate phone-ctc-mfa` |
 
 命令总览：
@@ -386,22 +390,22 @@ Guided推理：目标文本经过CMUdict/G2P得到目标phones，音频经过HuB
 
 ## 14. `tests/`：每类测试保护什么
 
-| 目录/文件 | 保护内容 |
-| --- | --- |
-| `tests/cli/test_cli.py` | 顶层命令组和子命令没有在重构中丢失 |
-| `tests/contracts/test_guided_contract.py` | JSON Schema和Guided跨字段语义 |
-| `tests/core/test_artifacts.py` | SHA-256、JSON、JSONL确定性 |
-| `tests/data/test_normalization.py` | 文本规范化 |
-| `tests/data/test_pronunciation.py` | CMUdict、所有格和OOV G2P |
-| `tests/data/test_syllabification.py` | 音节核和onset规则 |
-| `tests/data/test_alignment.py` | TextGrid解析和时间戳绑定 |
-| `tests/data/test_stage2_review.py` | pending/fail不能错误打开人工门禁 |
-| `tests/data/test_phone_sequences.py` | CTC词表、重复label路径和卷积长度 |
-| `tests/models/test_phone_ctc.py` | HuBERT输出长度计算 |
-| `tests/decoding/test_phone_ctc.py` | greedy collapse、PER、forced alignment和帧转秒 |
-| `tests/metrics/test_alignment.py` | 边界匹配和容差指标 |
-| `tests/training/test_phone_ctc.py` | checkpoint只保存可训练状态并可恢复 |
-| `tests/fixtures/` | 小型固定JSON和TextGrid输入 |
+| 目录/文件                                   | 保护内容                                       |
+| ------------------------------------------- | ---------------------------------------------- |
+| `tests/cli/test_cli.py`                   | 顶层命令组和子命令没有在重构中丢失             |
+| `tests/contracts/test_guided_contract.py` | JSON Schema和Guided跨字段语义                  |
+| `tests/core/test_artifacts.py`            | SHA-256、JSON、JSONL确定性                     |
+| `tests/data/test_normalization.py`        | 文本规范化                                     |
+| `tests/data/test_pronunciation.py`        | CMUdict、所有格和OOV G2P                       |
+| `tests/data/test_syllabification.py`      | 音节核和onset规则                              |
+| `tests/data/test_alignment.py`            | TextGrid解析和时间戳绑定                       |
+| `tests/data/test_stage2_review.py`        | pending/fail不能错误打开人工门禁               |
+| `tests/data/test_phone_sequences.py`      | CTC词表、重复label路径和卷积长度               |
+| `tests/models/test_phone_ctc.py`          | HuBERT输出长度计算                             |
+| `tests/decoding/test_phone_ctc.py`        | greedy collapse、PER、forced alignment和帧转秒 |
+| `tests/metrics/test_alignment.py`         | 边界匹配和容差指标                             |
+| `tests/training/test_phone_ctc.py`        | checkpoint只保存可训练状态并可恢复             |
+| `tests/fixtures/`                         | 小型固定JSON和TextGrid输入                     |
 
 当前全量测试是53项：
 
@@ -443,19 +447,19 @@ MFA声学模型、corpus、词典、TextGrid和alignment分析。
 
 ## 16. 想改某项功能时去哪里
 
-| 你想做什么 | 首先查看 |
-| --- | --- |
-| 改文本清洗 | `data/normalization.py`及对应测试 |
-| 改发音词典/G2P | `data/pronunciation.py`及配置 |
-| 改音节规则 | `data/syllabification.py`和syllabifier YAML |
-| 改MFA数据流程 | `data/stage2.py`、`data/alignment.py`和MFA配置 |
-| 改Phone词表/manifest | `data/phone_sequences.py` |
-| 改HuBERT模型头 | `models/phone_ctc.py` |
-| 改训练策略 | 先改训练YAML，再改 `training/phone_ctc.py` |
-| 改CTC对齐 | `decoding/phone_ctc.py` |
-| 改边界指标 | `metrics/alignment.py` |
-| 新增CLI命令 | 对应 `cli/*.py`，核心逻辑放业务模块 |
-| 改公共返回格式 | schema、contract配置和 `contracts/guided.py` 一起改 |
+| 你想做什么           | 首先查看                                             |
+| -------------------- | ---------------------------------------------------- |
+| 改文本清洗           | `data/normalization.py`及对应测试                  |
+| 改发音词典/G2P       | `data/pronunciation.py`及配置                      |
+| 改音节规则           | `data/syllabification.py`和syllabifier YAML        |
+| 改MFA数据流程        | `data/stage2.py`、`data/alignment.py`和MFA配置   |
+| 改Phone词表/manifest | `data/phone_sequences.py`                          |
+| 改HuBERT模型头       | `models/phone_ctc.py`                              |
+| 改训练策略           | 先改训练YAML，再改`training/phone_ctc.py`          |
+| 改CTC对齐            | `decoding/phone_ctc.py`                            |
+| 改边界指标           | `metrics/alignment.py`                             |
+| 新增CLI命令          | 对应`cli/*.py`，核心逻辑放业务模块                 |
+| 改公共返回格式       | schema、contract配置和`contracts/guided.py` 一起改 |
 
 ## 17. 绝对不要做的事情
 

@@ -19,17 +19,17 @@
 
 当前参考结果：
 
-| 项目 | 参考值 |
-| --- | ---: |
-| 音频 | 12条，168.625秒 |
-| Phone标签 | 1537个 |
-| Phone词表 | 55类 |
-| 12条训练步数 | 2400 |
-| 12条训练PER | 约2.60% |
-| 12条最终loss | 约0.267 |
-| MFA对照边界MAE | 约980 ms |
-| 20 ms边界F1 | 约1.71% |
-| 50 ms边界F1 | 约3.42% |
+| 项目           |          参考值 |
+| -------------- | --------------: |
+| 音频           | 12条，168.625秒 |
+| Phone标签      |          1537个 |
+| Phone词表      |            55类 |
+| 12条训练步数   |            2400 |
+| 12条训练PER    |         约2.60% |
+| 12条最终loss   |         约0.267 |
+| MFA对照边界MAE |        约980 ms |
+| 20 ms边界F1    |         约1.71% |
+| 50 ms边界F1    |         约3.42% |
 
 最后三项说明边界仍不可用。这是预期的失败门禁，不要为了得到“好看结果”修改报告。
 
@@ -275,6 +275,52 @@ data/samples/librispeech_train_clean_100/
 
 已有正确数据时脚本返回 `skipped`。已有数据不匹配时脚本会停止，而不是静默覆盖。
 
+### 7.1 下载Stage 3一小时多说话人子集
+
+12条样本通过正确性门禁后，使用配置驱动的正式下载模式：
+
+```powershell
+sylrec data download `
+  --config configs/data/librispeech_download_stage3.yaml `
+  --split train-clean-100
+```
+
+同一个脚本也保留了兼容入口：
+
+```powershell
+python scripts/prepare_stage0_sample.py `
+  --config configs/data/librispeech_download_stage3.yaml `
+  --split train-clean-100
+```
+
+当前配置固定使用 `train.clean.100/0000.parquet`，按官方发布顺序扫描，每位说话人最多选择240秒，至少包含10位说话人，累计达到一小时后停止。它不会随机重分官方split。
+
+输出位置：
+
+```text
+data/librispeech/train-clean-100/
+|-- audio/
+|-- manifest.jsonl
+`-- source.json
+```
+
+当前实际结果：
+
+```text
+items: 289
+duration: 3602.924812秒
+speakers: 16
+chapters: 20
+```
+
+机器可读总报告位于：
+
+```text
+artifacts/reports/librispeech_download_stage3.json
+```
+
+正确产物存在时重复执行会返回 `skipped`。需要完整官方split时，将对应配置的 `target_hours` 和 `target_items` 都设为 `null`，并将 `source_shards` 设为 `null` 以自动发现全部固定revision分片；完整训练仍必须等待一小时实验通过门禁。
+
 ## 8. 离线验证HuBERT前向
 
 ```powershell
@@ -348,6 +394,35 @@ mfa timestamps used: false
 ```
 
 正确产物已存在时返回 `skipped`。这表示哈希校验通过，不是命令没执行。
+
+### 9.1 构建一小时Phone CTC标签
+
+```powershell
+sylrec data build-phone-sequences `
+  --config configs/data/librispeech_phone_ctc_1h.yaml
+```
+
+输出：
+
+```text
+artifacts/manifests/phone_ctc_train_clean_100_1h.jsonl
+artifacts/vocabs/phone_ctc_train_clean_100_1h.json
+artifacts/reports/phone_ctc_train_clean_100_1h_data.json
+```
+
+当前结果：
+
+```text
+items: 289
+duration: 3602.92481秒
+phones: 36502
+vocabulary size: 69
+CTC infeasible items: 0
+MFA timestamps used: false
+unique OOV words: 179
+```
+
+OOV全部通过显式G2P生成标签，没有静默删除。正式扩大数据前仍需统计OOV token比例并抽查高频OOV发音。
 
 ## 10. 按顺序执行三次训练门禁
 
@@ -427,7 +502,24 @@ Test-Path runs\hubert-phone-ctc-12-overfit\last\checkpoint.pt
 
 两个结果都应该是 `True`。
 
-### 10.4 为什么命令可能直接显示skipped
+### 10.4 一小时冻结encoder训练
+
+一小时manifest通过后运行：
+
+```powershell
+sylrec train phone-ctc `
+  --config configs/train/hubert_phone_ctc_1h_frozen.yaml
+```
+
+配置使用289条音频、冻结整个HuBERT encoder、缓存hidden states，只训练Phone CTC分类头，共5个epoch、最多1445步，输出到：
+
+```text
+runs/hubert-phone-ctc-1h-frozen/
+```
+
+当前配置使用CPU和batch size 1，首次缓存一小时HuBERT特征可能耗时较长。这个实验只验证多说话人数据上的训练收敛、有限loss和checkpoint恢复；由于尚无 `dev-clean`，不得用训练PER选择正式模型或声称泛化能力。
+
+### 10.5 为什么命令可能直接显示skipped
 
 如果metrics、配置、manifest和词表哈希全部一致，训练命令会返回：
 

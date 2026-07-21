@@ -15,7 +15,7 @@
 
 ## 1. 当前状态
 
-截至 2026-07-20：
+截至 2026-07-21：
 
 | 阶段 | 状态 | 已有结果 |
 | --- | --- | --- |
@@ -24,8 +24,8 @@
 | 2. 极小样本数据标注链路 | 已完成 | 12/12 MFA 对齐；452 词、1537 音素、619 音节 |
 | 2. 数据门禁 | 已通过 | 自动检查无问题；10/10 可视化抽查通过 |
 | 3. 无 MFA phone-sequence manifest | 极小样本已完成 | 12 条、1537 phones、55 类 train-only 词表 |
-| 3. 正式 train/dev/test manifest | 未开始 | 当前仍只有单说话人小样本 |
-| 4. HuBERT Phone CTC | 正确性门禁部分通过 | 12 条冻结 encoder 过拟合 PER 2.60% |
+| 3. 正式 train/dev/test manifest | 进行中 | 1小时train manifest已通过：289条、36502 phones、69类词表；dev/test尚未获取 |
+| 4. HuBERT Phone CTC | 一小时配置已就绪 | 12条过拟合PER 2.60%；一小时冻结encoder训练尚未运行 |
 | 5. Guided CTC 对齐 | 算法已实现，边界未达标 | MFA 对照边界 MAE 979.7 ms |
 | 6. Syllable CTC | 未开始 | 尚无训练词表和模型 |
 | 7. 显式边界与属性分类 | 未开始 | 尚无 Boundary/ONC/stress 模型 |
@@ -50,7 +50,7 @@
 
 这里的 `downstream_training_allowed=true` 只说明 MFA 数据转换链路正确。Phone CTC 的序列和边界指标使用各自独立门禁。
 
-当前分支只选择一个自监督预训练模型 `facebook/hubert-base-ls960`，没有引入 Wav2Vec2。当前本地数据也只有 `train.clean.100` 发布顺序前 12 条；MFA 资产保留为评价对照，不进入 CTC loss。
+当前分支只选择一个自监督预训练模型 `facebook/hubert-base-ls960`，没有引入 Wav2Vec2。Stage 0仍保留 `train.clean.100` 发布顺序前12条固定回归样本；Stage 3另有一小时多说话人训练子集，共289条、3602.925秒、16位说话人。MFA资产保留为评价对照，不进入CTC loss。
 
 ## 2. 项目最终目标
 
@@ -825,6 +825,8 @@ sylrec evaluate phone-ctc-mfa `
 ### 阶段 3：正式 train/dev/test manifest
 
 当前已经在 12 条样本上实现无 MFA phone-sequence manifest；正式任务仍需：
+
+一小时 `train-clean-100` 子集及其Phone CTC manifest现已生成，包含289条、16位说话人、36502个phones和69类train-only词表，且无CTC不可行样本。当前仍缺少独立 `dev-clean` 和 `test-clean` manifest。
 
 1. 获取 `train-clean-100`、`dev-clean`、`test-clean`。
 2. 分 split 生成 transcript-derived phone sequence，不使用 MFA 边界训练。

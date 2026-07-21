@@ -28,11 +28,13 @@ class Pronunciation:
 
 
 def _validate_phones(word: str, phones: Sequence[str]) -> tuple[str, ...]:
+    """校验一个发音是否符合项目固定的 ARPAbet 契约。"""
     result = tuple(phone.upper() for phone in phones)
     if not result:
         raise PronunciationError(f"{word!r} produced no phones")
     vowel_count = 0
     for phone in result:
+        # 元音必须携带 0/1/2 重音；辅音则不能伪装成带重音音素。
         if phone[-1:] in {"0", "1", "2"}:
             base = phone[:-1]
             if base not in VOWELS:
@@ -48,7 +50,11 @@ def _validate_phones(word: str, phones: Sequence[str]) -> tuple[str, ...]:
 
 
 class PronunciationResolver:
-    """Resolve one configured pronunciation per normalized word."""
+    """为每个规范化单词确定一个可复现的 ARPAbet 发音。
+
+    当前基线优先使用 CMUdict 的第一个变体，词典未收录时才调用 G2P。
+    这是确定性基线，不表示第一个变体一定与每条真实录音完全一致。
+    """
 
     def __init__(
         self,
@@ -76,8 +82,8 @@ class PronunciationResolver:
             nltk.download = original_download
 
         raw_lexicon: dict[str, Any] = cmudict.dict()
-        # g2p_en defaults to NLTK's separately downloaded CMUdict. Reuse the
-        # pinned Python package so construction never performs a hidden download.
+        # g2p_en 默认依赖 NLTK 单独下载的 CMUdict。这里复用锁定版本的
+        # cmudict Python 包，避免构造 resolver 时发生不可见的联网下载。
         g2p_module.cmudict = cmudict
         generator = g2p_module.G2p()
 
@@ -92,11 +98,14 @@ class PronunciationResolver:
         )
 
     def resolve(self, word: str) -> Pronunciation:
+        """解析一个单词，并保留词典/G2P 来源和发音变体信息。"""
         variants = self._lexicon.get(word.upper())
         if variants:
+            # v1 固定选择第一个变体以保证重跑一致，后续可升级为声学选变体。
             phones = _validate_phones(word, variants[0])
             return Pronunciation(word, phones, self.dictionary_name, 0, len(variants))
         if word.upper().endswith("'S"):
+            # 所有格 'S 根据词尾清浊和嘶擦属性规则化为 /S/、/Z/ 或 /IH0 Z/。
             base_word = word.upper()[:-2]
             base_variants = self._lexicon.get(base_word)
             if base_variants:
@@ -115,6 +124,7 @@ class PronunciationResolver:
                     0,
                     len(base_variants),
                 )
+        # OOV 不能静默删除，否则音素标签会与录音中的单词顺序错位。
         phones = _validate_phones(word, self._g2p(word))
         return Pronunciation(word, phones, self.g2p_name, 0, 1)
 
